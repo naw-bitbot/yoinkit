@@ -73,45 +73,91 @@ jobs:
           chmod +x ../apps/desktop/src-tauri/bin/wget
           cd ..
 
-          # Bundle required dylibs next to the binary so they're found at runtime
+          # Recursively bundle ALL dylib dependencies (including transitive)
           WGET_BIN=apps/desktop/src-tauri/bin/wget
           LIBS_DIR=apps/desktop/src-tauri/bin/libs
           mkdir -p "$LIBS_DIR"
 
-          # Copy all non-system dylibs and rewrite paths
-          for lib in $(otool -L "$WGET_BIN" | grep -v '/usr/lib\|/System' | awk '{print $1}' | tail -n +2); do
+          # Function to get non-system dylib deps of a binary
+          get_deps() {
+            otool -L "$1" | awk '{print $1}' | tail -n +2 | grep -v '/usr/lib\|/System\|@executable_path\|@rpath\|@loader_path'
+          }
+
+          # Recursively collect all dylibs needed
+          QUEUE=$(get_deps "$WGET_BIN")
+          PROCESSED=""
+
+          while [ -n "$QUEUE" ]; do
+            NEXT_QUEUE=""
+            for lib in $QUEUE; do
+              LIBNAME=$(basename "$lib")
+              # Skip if already processed
+              echo "$PROCESSED" | grep -q "$LIBNAME" && continue
+              PROCESSED="$PROCESSED $LIBNAME"
+
+              if [ -f "$lib" ]; then
+                echo "Bundling: $lib -> $LIBS_DIR/$LIBNAME"
+                cp "$lib" "$LIBS_DIR/$LIBNAME"
+                chmod 644 "$LIBS_DIR/$LIBNAME"
+
+                # Get this lib's own deps and add to queue
+                SUB_DEPS=$(get_deps "$lib")
+                for sub in $SUB_DEPS; do
+                  SUB_NAME=$(basename "$sub")
+                  echo "$PROCESSED" | grep -q "$SUB_NAME" || NEXT_QUEUE="$NEXT_QUEUE $sub"
+                done
+              else
+                echo "WARNING: dependency not found: $lib"
+              fi
+            done
+            QUEUE="$NEXT_QUEUE"
+          done
+
+          # Rewrite all paths in the wget binary
+          for lib in $(get_deps "$WGET_BIN"); do
             LIBNAME=$(basename "$lib")
-            cp "$lib" "$LIBS_DIR/$LIBNAME"
             install_name_tool -change "$lib" "@executable_path/libs/$LIBNAME" "$WGET_BIN"
           done
 
-          # Also fix inter-library references
+          # Rewrite all paths in every bundled dylib
           for bundled_lib in "$LIBS_DIR"/*.dylib; do
-            for lib in $(otool -L "$bundled_lib" | grep -v '/usr/lib\|/System' | awk '{print $1}' | tail -n +2); do
-              LIBNAME=$(basename "$lib")
-              if [ -f "$LIBS_DIR/$LIBNAME" ]; then
-                install_name_tool -change "$lib" "@executable_path/libs/$LIBNAME" "$bundled_lib"
+            # Set its own id
+            install_name_tool -id "@executable_path/libs/$(basename "$bundled_lib")" "$bundled_lib"
+            # Rewrite references to other bundled libs
+            for dep in $(otool -L "$bundled_lib" | awk '{print $1}' | tail -n +2 | grep -v '/usr/lib\|/System\|@executable_path\|@rpath\|@loader_path'); do
+              DEP_NAME=$(basename "$dep")
+              if [ -f "$LIBS_DIR/$DEP_NAME" ]; then
+                install_name_tool -change "$dep" "@executable_path/libs/$DEP_NAME" "$bundled_lib"
               fi
             done
-            # Set the id to the new path
-            install_name_tool -id "@executable_path/libs/$(basename "$bundled_lib")" "$bundled_lib"
           done
 
-          # Ad-hoc codesign the wget binary and bundled libs
-          # This prevents macOS Gatekeeper from killing unsigned binaries
+          # Ad-hoc codesign everything
           for f in "$LIBS_DIR"/*.dylib; do
             codesign --force --sign - "$f"
           done
           codesign --force --sign - "$WGET_BIN"
 
-          # Strip any quarantine attributes
+          # Strip quarantine
           xattr -cr apps/desktop/src-tauri/bin/
 
-          # Verify no Homebrew paths remain
+          # Verify — no non-system, non-@executable_path deps should remain
           echo "=== Verifying wget dependencies ==="
           otool -L "$WGET_BIN"
           echo "=== Verifying bundled libs ==="
-          for f in "$LIBS_DIR"/*.dylib; do otool -L "$f"; done
+          for f in "$LIBS_DIR"/*.dylib; do
+            echo "--- $(basename "$f") ---"
+            otool -L "$f"
+          done
+          echo "=== Checking for any remaining Homebrew paths ==="
+          REMAINING=$(otool -L "$WGET_BIN" "$LIBS_DIR"/*.dylib 2>/dev/null | grep '/opt/homebrew' || true)
+          if [ -n "$REMAINING" ]; then
+            echo "ERROR: Homebrew paths still found!"
+            echo "$REMAINING"
+            exit 1
+          else
+            echo "All clear — no Homebrew paths remain."
+          fi
 
       - name: Build Tauri app
         env:
