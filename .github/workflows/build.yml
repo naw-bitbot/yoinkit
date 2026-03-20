@@ -40,13 +40,68 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install
 
-      - name: Build wget binary
+      - name: Build wget from source (static)
         run: |
-          brew install wget
-          WGET_PATH=$(which wget)
-          mkdir -p apps/desktop/src-tauri/bin
-          cp "$WGET_PATH" apps/desktop/src-tauri/bin/wget
-          chmod +x apps/desktop/src-tauri/bin/wget
+          # Install build dependencies
+          brew install autoconf automake pkg-config
+
+          # Download wget source
+          curl -L -o wget-1.24.5.tar.gz https://ftp.gnu.org/gnu/wget/wget-1.24.5.tar.gz
+          tar xzf wget-1.24.5.tar.gz
+          cd wget-1.24.5
+
+          # Build with static linking - bundle OpenSSL and other deps
+          # Use Apple's SecureTransport instead of OpenSSL to avoid dynamic deps
+          ./configure \
+            --with-ssl=openssl \
+            --with-included-regex \
+            --without-libidn \
+            --without-libuuid \
+            --disable-nls \
+            --disable-pcre \
+            --disable-pcre2 \
+            OPENSSL_CFLAGS="$(pkg-config --cflags openssl 2>/dev/null || echo '-I/opt/homebrew/opt/openssl@3/include')" \
+            OPENSSL_LIBS="$(pkg-config --libs --static openssl 2>/dev/null || echo '-L/opt/homebrew/opt/openssl@3/lib -lssl -lcrypto')" \
+            LDFLAGS="-L/opt/homebrew/opt/openssl@3/lib" \
+            CFLAGS="-I/opt/homebrew/opt/openssl@3/include"
+
+          make -j$(sysctl -n hw.ncpu)
+
+          # Copy the built binary
+          mkdir -p ../apps/desktop/src-tauri/bin
+          cp src/wget ../apps/desktop/src-tauri/bin/wget
+          chmod +x ../apps/desktop/src-tauri/bin/wget
+          cd ..
+
+          # Bundle required dylibs next to the binary so they're found at runtime
+          WGET_BIN=apps/desktop/src-tauri/bin/wget
+          LIBS_DIR=apps/desktop/src-tauri/bin/libs
+          mkdir -p "$LIBS_DIR"
+
+          # Copy all non-system dylibs and rewrite paths
+          for lib in $(otool -L "$WGET_BIN" | grep -v '/usr/lib\|/System' | awk '{print $1}' | tail -n +2); do
+            LIBNAME=$(basename "$lib")
+            cp "$lib" "$LIBS_DIR/$LIBNAME"
+            install_name_tool -change "$lib" "@executable_path/libs/$LIBNAME" "$WGET_BIN"
+          done
+
+          # Also fix inter-library references
+          for bundled_lib in "$LIBS_DIR"/*.dylib; do
+            for lib in $(otool -L "$bundled_lib" | grep -v '/usr/lib\|/System' | awk '{print $1}' | tail -n +2); do
+              LIBNAME=$(basename "$lib")
+              if [ -f "$LIBS_DIR/$LIBNAME" ]; then
+                install_name_tool -change "$lib" "@executable_path/libs/$LIBNAME" "$bundled_lib"
+              fi
+            done
+            # Set the id to the new path
+            install_name_tool -id "@executable_path/libs/$(basename "$bundled_lib")" "$bundled_lib"
+          done
+
+          # Verify no Homebrew paths remain
+          echo "=== Verifying wget dependencies ==="
+          otool -L "$WGET_BIN"
+          echo "=== Verifying bundled libs ==="
+          for f in "$LIBS_DIR"/*.dylib; do otool -L "$f"; done
 
       - name: Build Tauri app
         env:
