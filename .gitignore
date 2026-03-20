@@ -3,3 +3,8 @@ dist/
 target/
 .DS_Store
 *.log
+
+# Bundled binaries (built locally)
+apps/desktop/src-tauri/bin/wget
+!apps/desktop/src-tauri/bin/.gitkeep
+!apps/desktop/src-tauri/bin/README.md
