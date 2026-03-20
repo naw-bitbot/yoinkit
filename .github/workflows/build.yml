@@ -130,9 +130,10 @@ jobs:
             # Strip quarantine from everything
             xattr -cr "$APP_PATH"
             # Re-sign bundled libs first, then wget, then the whole app
-            for f in "$APP_PATH/Contents/Resources/bin/libs/"*.dylib 2>/dev/null; do
-              codesign --force --sign - "$f" || true
-            done
+            LIBS_IN_APP="$APP_PATH/Contents/Resources/bin/libs"
+            if [ -d "$LIBS_IN_APP" ]; then
+              find "$LIBS_IN_APP" -name "*.dylib" -exec codesign --force --sign - {} \;
+            fi
             WGET_IN_APP="$APP_PATH/Contents/Resources/bin/wget"
             if [ -f "$WGET_IN_APP" ]; then
               codesign --force --sign - "$WGET_IN_APP"
