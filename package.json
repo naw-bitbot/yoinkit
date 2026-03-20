@@ -1,0 +1,10 @@
+{
+  "name": "yoinkit",
+  "private": true,
+  "scripts": {
+    "dev:desktop": "pnpm --filter @yoinkit/desktop dev",
+    "dev:extension": "pnpm --filter @yoinkit/extension dev",
+    "build:desktop": "pnpm --filter @yoinkit/desktop build",
+    "build:extension": "pnpm --filter @yoinkit/extension build"
+  }
+}
