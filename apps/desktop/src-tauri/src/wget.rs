@@ -125,13 +125,22 @@ pub async fn spawn_wget(
     flags: &WgetFlags,
     save_dir: &str,
 ) -> Result<(Child, mpsc::Receiver<WgetProgress>), String> {
+    // Basic URL validation
+    if !url.starts_with("http://") && !url.starts_with("https://") && !url.starts_with("ftp://") {
+        return Err("Invalid URL: must start with http://, https://, or ftp://".to_string());
+    }
+
     let wget_path = wget_binary_path();
 
     let mut cmd = Command::new(&wget_path);
+    let flag_args = flags.to_args();
+    let has_dir_prefix = flag_args.iter().any(|a| a.starts_with("--directory-prefix"));
     cmd.arg("--progress=dot:default")
-        .args(flags.to_args())
-        .arg(format!("--directory-prefix={}", save_dir))
-        .arg(url)
+        .args(&flag_args);
+    if !has_dir_prefix {
+        cmd.arg(format!("--directory-prefix={}", save_dir));
+    }
+    cmd.arg(url)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
 

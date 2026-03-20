@@ -9,6 +9,7 @@ use uuid::Uuid;
 pub struct AppState {
     pub db: Arc<Database>,
     pub download_manager: Arc<DownloadManager>,
+    pub auth_token: String,
 }
 
 #[tauri::command]
@@ -84,4 +85,9 @@ pub fn list_presets(state: State<'_, AppState>) -> Result<Vec<Preset>, String> {
 #[tauri::command]
 pub fn delete_preset(state: State<'_, AppState>, id: String) -> Result<(), String> {
     state.db.delete_preset(&id).map_err(|e| format!("DB error: {}", e))
+}
+
+#[tauri::command]
+pub fn get_auth_token(state: State<'_, AppState>) -> String {
+    state.auth_token.clone()
 }

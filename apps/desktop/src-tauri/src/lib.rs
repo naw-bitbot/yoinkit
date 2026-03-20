@@ -21,6 +21,7 @@ pub fn run() {
     let app_state = Arc::new(AppState {
         db: db.clone(),
         download_manager: download_manager.clone(),
+        auth_token: auth.get_token(),
     });
 
     // Clone for API server
@@ -54,6 +55,7 @@ pub fn run() {
             commands::save_preset,
             commands::list_presets,
             commands::delete_preset,
+            commands::get_auth_token,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

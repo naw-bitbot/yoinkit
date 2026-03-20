@@ -99,7 +99,27 @@ function Popup() {
           variant="ghost"
           size="sm"
           className="w-full"
-          onClick={() => handleDownload(url)}
+          onClick={async () => {
+            if (!url.trim()) return;
+            setLoading(true);
+            setMessage(null);
+            try {
+              await api.startDownload({
+                url: url.trim(),
+                flags: {
+                  recursive: true,
+                  convert_links: true,
+                  page_requisites: true,
+                  no_parent: true
+                }
+              });
+              setMessage({ text: "Site mirror started!", type: "success" });
+            } catch {
+              setMessage({ text: "Failed to start mirror", type: "error" });
+            } finally {
+              setLoading(false);
+            }
+          }}
           disabled={!connected || !url.trim()}
         >
           Download Whole Site (Recursive)

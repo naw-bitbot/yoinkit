@@ -32,6 +32,9 @@ fn validate_token(headers: &HeaderMap, auth: &AuthManager) -> Result<(), StatusC
 }
 
 pub async fn start_api_server(app_state: Arc<AppState>, auth: Arc<AuthManager>) {
+    // CORS is permissive because the API only listens on localhost (127.0.0.1)
+    // and all mutating endpoints require a valid Bearer token.
+    // The auth token is the primary security mechanism.
     let cors = CorsLayer::new()
         .allow_origin(Any)
         .allow_methods(Any)
@@ -119,10 +122,8 @@ async fn delete_download_by_id(
     Path(id): Path<String>,
 ) -> Result<StatusCode, StatusCode> {
     validate_token(&headers, &state.auth)?;
-    state.app_state.download_manager
-        .cancel_download(&id)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    // Try to cancel if active, ignore errors (may already be finished)
+    let _ = state.app_state.download_manager.cancel_download(&id).await;
     state.app_state.download_manager
         .delete_download(&id)
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
