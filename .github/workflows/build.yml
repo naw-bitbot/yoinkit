@@ -48,16 +48,13 @@ jobs:
           cp "$WGET_PATH" apps/desktop/src-tauri/bin/wget
           chmod +x apps/desktop/src-tauri/bin/wget
 
-      - name: Install Tauri CLI
-        run: pnpm add -Dw @tauri-apps/cli
-
       - name: Build Tauri app
         env:
           TAURI_SIGNING_PRIVATE_KEY: ""
           TARGET: ${{ matrix.target }}
         run: |
           cd apps/desktop
-          pnpm tauri build --target "$TARGET"
+          pnpm exec tauri build --target "$TARGET"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
