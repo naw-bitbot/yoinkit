@@ -1,0 +1,60 @@
+name: Build Extension
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-extension:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build extension
+        run: pnpm build:extension
+
+      - name: Package Chrome extension
+        run: |
+          cd apps/extension
+          cp manifests/chrome-manifest.json dist/manifest.json
+          cd dist && zip -r ../../yoinkit-chrome.zip .
+
+      - name: Package Firefox extension
+        run: |
+          cd apps/extension
+          cp manifests/firefox-manifest.json dist/manifest.json
+          cd dist && zip -r ../../yoinkit-firefox.zip .
+
+      - name: Upload Chrome extension
+        uses: actions/upload-artifact@v4
+        with:
+          name: yoinkit-chrome-extension
+          path: apps/yoinkit-chrome.zip
+
+      - name: Upload Firefox extension
+        uses: actions/upload-artifact@v4
+        with:
+          name: yoinkit-firefox-extension
+          path: apps/yoinkit-firefox.zip
