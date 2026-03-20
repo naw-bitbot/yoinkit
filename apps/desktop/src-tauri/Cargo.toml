@@ -19,6 +19,9 @@ uuid = { version = "1", features = ["v4"] }
 rand = "0.8"
 dirs = "5"
 nix = { version = "0.28", features = ["signal"] }
+chrono = "0.4"
+shellexpand = "3"
+hex = "0.4"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
