@@ -135,7 +135,7 @@ pub async fn spawn_wget(
     let mut cmd = Command::new(&wget_path);
     let flag_args = flags.to_args();
     let has_dir_prefix = flag_args.iter().any(|a| a.starts_with("--directory-prefix"));
-    cmd.arg("--progress=dot:default")
+    cmd.arg("--progress=bar:force:noscroll")
         .args(&flag_args);
     if !has_dir_prefix {
         cmd.arg(format!("--directory-prefix={}", save_dir));
@@ -164,17 +164,26 @@ pub async fn spawn_wget(
 }
 
 fn parse_wget_progress(line: &str) -> Option<WgetProgress> {
-    // Parse wget progress output
-    // Wget outputs lines like: "     0K .......... .......... .......... .......... ..........  1% 1.23M 2m30s"
-    // Or percentage lines like: " 50% [======>     ] 1,234,567   1.23M/s  eta 2m 30s"
+    // Parse wget --progress=bar:force:noscroll output
+    // Format: "  50%[====>           ] 1,234,567   1.23M/s  eta 2m 30s"
+    // Also handles carriage-return-delimited updates within a single line
 
-    let trimmed = line.trim();
+    // Take the last carriage-return segment (wget overwrites the line)
+    let segment = line.rsplit('\r').next().unwrap_or(line);
+    let trimmed = segment.trim();
+
+    if trimmed.is_empty() {
+        return None;
+    }
 
     // Try to find percentage pattern
     if let Some(pct_pos) = trimmed.find('%') {
         let before_pct = &trimmed[..pct_pos];
         // Get the last number before %
-        let num_str: String = before_pct.chars().rev().take_while(|c| c.is_ascii_digit()).collect::<String>().chars().rev().collect();
+        let num_str: String = before_pct.chars().rev()
+            .take_while(|c| c.is_ascii_digit())
+            .collect::<String>()
+            .chars().rev().collect();
         if let Ok(pct) = num_str.parse::<f64>() {
             let speed = extract_speed(trimmed);
             let eta = extract_eta(trimmed);
@@ -182,8 +191,34 @@ fn parse_wget_progress(line: &str) -> Option<WgetProgress> {
                 percentage: pct,
                 speed,
                 eta,
-                file_size: None,
+                file_size: extract_file_size(trimmed),
             });
+        }
+    }
+
+    // Also detect completion: "saved" or "100%"
+    if trimmed.contains("saved") || trimmed.contains("100%") {
+        return Some(WgetProgress {
+            percentage: 100.0,
+            speed: None,
+            eta: None,
+            file_size: None,
+        });
+    }
+
+    None
+}
+
+fn extract_file_size(line: &str) -> Option<i64> {
+    // Look for size after the progress bar bracket, e.g. "] 1,234,567"
+    if let Some(bracket_pos) = line.find(']') {
+        let after = &line[bracket_pos + 1..];
+        let size_str: String = after.trim().chars()
+            .take_while(|c| c.is_ascii_digit() || *c == ',')
+            .collect();
+        let clean: String = size_str.chars().filter(|c| c.is_ascii_digit()).collect();
+        if !clean.is_empty() {
+            return clean.parse().ok();
         }
     }
     None

@@ -97,6 +97,16 @@ jobs:
             install_name_tool -id "@executable_path/libs/$(basename "$bundled_lib")" "$bundled_lib"
           done
 
+          # Ad-hoc codesign the wget binary and bundled libs
+          # This prevents macOS Gatekeeper from killing unsigned binaries
+          for f in "$LIBS_DIR"/*.dylib; do
+            codesign --force --sign - "$f"
+          done
+          codesign --force --sign - "$WGET_BIN"
+
+          # Strip any quarantine attributes
+          xattr -cr apps/desktop/src-tauri/bin/
+
           # Verify no Homebrew paths remain
           echo "=== Verifying wget dependencies ==="
           otool -L "$WGET_BIN"
@@ -110,6 +120,26 @@ jobs:
         run: |
           cd apps/desktop
           pnpm exec tauri build --target "$TARGET"
+
+      - name: Fix code signing on bundled binaries
+        run: |
+          # Find the built .app bundle
+          APP_PATH=$(find apps/desktop/src-tauri/target -name "Yoinkit.app" -type d | head -1)
+          if [ -n "$APP_PATH" ]; then
+            echo "Found app at: $APP_PATH"
+            # Strip quarantine from everything
+            xattr -cr "$APP_PATH"
+            # Re-sign bundled libs first, then wget, then the whole app
+            for f in "$APP_PATH/Contents/Resources/bin/libs/"*.dylib 2>/dev/null; do
+              codesign --force --sign - "$f" || true
+            done
+            WGET_IN_APP="$APP_PATH/Contents/Resources/bin/wget"
+            if [ -f "$WGET_IN_APP" ]; then
+              codesign --force --sign - "$WGET_IN_APP"
+            fi
+            # Re-sign the entire app bundle
+            codesign --force --deep --sign - "$APP_PATH"
+          fi
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
