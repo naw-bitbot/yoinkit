@@ -1,0 +1,24 @@
+[package]
+name = "yoinkit"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "yoinkit_lib"
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rusqlite = { version = "0.31", features = ["bundled"] }
+tokio = { version = "1", features = ["full"] }
+axum = "0.7"
+tower-http = { version = "0.5", features = ["cors"] }
+uuid = { version = "1", features = ["v4"] }
+rand = "0.8"
+dirs = "5"
+nix = { version = "0.28", features = ["signal"] }
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
