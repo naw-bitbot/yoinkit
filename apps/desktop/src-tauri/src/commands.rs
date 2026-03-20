@@ -6,6 +6,7 @@ use std::sync::Arc;
 use tauri::State;
 use uuid::Uuid;
 
+#[derive(Clone)]
 pub struct AppState {
     pub db: Arc<Database>,
     pub download_manager: Arc<DownloadManager>,
