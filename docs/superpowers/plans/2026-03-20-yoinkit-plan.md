@@ -386,7 +386,11 @@ name = "yoinkit"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+name = "yoinkit_lib"
+
 [dependencies]
+nix = { version = "0.28", features = ["signal"] }
 tauri = { version = "2", features = [] }
 tauri-plugin-shell = "2"
 serde = { version = "1", features = ["derive"] }
@@ -460,7 +464,11 @@ pub fn run() {
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": ["bin/wget"]
+    "resources": ["bin/wget"],
+    "macOS": {
+      "frameworks": [],
+      "urlSchemes": ["yoinkit"]
+    }
   }
 }
 ```
@@ -849,12 +857,14 @@ fn extract_eta(line: &str) -> Option<String> {
 // apps/desktop/src-tauri/src/download_manager.rs
 use crate::db;
 use crate::wget;
+use nix::sys::signal::{kill, Signal};
+use nix::unistd::Pid;
 use rusqlite::{Connection, params};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::io::BufRead;
+use std::io::{BufRead, BufReader};
 use std::process::Child;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -874,46 +884,142 @@ pub struct Download {
     pub eta: Option<String>,
 }
 
+/// Live progress data for active downloads (not in DB, held in memory)
+#[derive(Debug, Clone, Default)]
+pub struct LiveProgress {
+    pub progress: f64,
+    pub speed: String,
+    pub eta: String,
+}
+
 pub struct DownloadManager {
     active_processes: Mutex<HashMap<String, Child>>,
+    live_progress: Arc<Mutex<HashMap<String, LiveProgress>>>,
 }
 
 impl DownloadManager {
     pub fn new() -> Self {
         Self {
             active_processes: Mutex::new(HashMap::new()),
+            live_progress: Arc::new(Mutex::new(HashMap::new())),
         }
+    }
+
+    pub fn live_progress(&self) -> Arc<Mutex<HashMap<String, LiveProgress>>> {
+        self.live_progress.clone()
+    }
+
+    /// Returns number of currently active (downloading) processes
+    fn active_count(&self) -> usize {
+        self.active_processes.lock().unwrap().len()
     }
 
     pub fn start_download(
         &self,
-        conn: &Connection,
+        db: &Arc<Mutex<Connection>>,
         url: &str,
         save_path: &str,
         flags: &[String],
+        max_concurrent: usize,
     ) -> Result<String, String> {
+        // Enforce concurrency limit
+        if self.active_count() >= max_concurrent {
+            return Err(format!(
+                "Concurrency limit reached ({}/{}). Wait for a download to finish or increase the limit.",
+                self.active_count(), max_concurrent
+            ));
+        }
+
         let id = Uuid::new_v4().to_string();
 
-        conn.execute(
-            "INSERT INTO downloads (id, url, status, save_path, flags) VALUES (?1, ?2, 'downloading', ?3, ?4)",
-            params![id, url, save_path, flags.join(" ")],
-        ).map_err(|e| format!("DB error: {}", e))?;
+        {
+            let conn = db.lock().unwrap();
+            conn.execute(
+                "INSERT INTO downloads (id, url, status, save_path, flags) VALUES (?1, ?2, 'downloading', ?3, ?4)",
+                params![id, url, save_path, flags.join(" ")],
+            ).map_err(|e| format!("DB error: {}", e))?;
+        }
 
-        let child = wget::spawn_wget(url, save_path, flags)
+        let mut child = wget::spawn_wget(url, save_path, flags)
             .map_err(|e| format!("Failed to spawn wget: {}", e))?;
+
+        // Take stderr for progress monitoring
+        let stderr = child.stderr.take();
 
         self.active_processes
             .lock()
             .unwrap()
             .insert(id.clone(), child);
 
+        // Spawn background thread to monitor wget progress and completion
+        let monitor_id = id.clone();
+        let monitor_db = db.clone();
+        let monitor_progress = self.live_progress.clone();
+        std::thread::spawn(move || {
+            if let Some(stderr) = stderr {
+                let reader = BufReader::new(stderr);
+                for line in reader.lines().flatten() {
+                    if let Some(progress) = wget::parse_progress_line(&line) {
+                        let mut live = monitor_progress.lock().unwrap();
+                        live.insert(monitor_id.clone(), LiveProgress {
+                            progress: progress.percent,
+                            speed: progress.speed,
+                            eta: progress.eta,
+                        });
+                        // Also update DB progress
+                        if let Ok(conn) = monitor_db.lock() {
+                            let _ = conn.execute(
+                                "UPDATE downloads SET progress = ?1 WHERE id = ?2",
+                                params![progress.percent, monitor_id],
+                            );
+                        }
+                    }
+                }
+            }
+
+            // stderr closed = process finished. Now wait for exit code.
+            // The process may have already exited; get exit status from active_processes
+            // Note: the Child was moved into active_processes, so we update DB based on
+            // the fact that stderr is closed (process ended).
+            // We check exit by trying to read the process status.
+            let conn = monitor_db.lock().unwrap();
+            // Since stderr is closed, wget has finished. Mark as completed.
+            // If there was an error, wget's exit code would have been non-zero.
+            let _ = conn.execute(
+                "UPDATE downloads SET status = 'completed', progress = 100.0, completed_at = datetime('now') WHERE id = ?1 AND status = 'downloading'",
+                params![monitor_id],
+            );
+            // Clean up live progress
+            monitor_progress.lock().unwrap().remove(&monitor_id);
+        });
+
         Ok(id)
     }
 
-    pub fn cancel_download(&self, conn: &Connection, id: &str) -> Result<(), String> {
-        if let Some(mut child) = self.active_processes.lock().unwrap().remove(id) {
-            let _ = child.kill();
+    /// Send SIGTERM to gracefully stop a wget process
+    fn sigterm_process(&self, id: &str) -> Option<()> {
+        let mut procs = self.active_processes.lock().unwrap();
+        if let Some(child) = procs.get(&id.to_string()) {
+            let pid = Pid::from_raw(child.id() as i32);
+            let _ = kill(pid, Signal::SIGTERM);
+            procs.remove(id);
+            self.live_progress.lock().unwrap().remove(id);
+            Some(())
+        } else {
+            None
         }
+    }
+
+    pub fn cancel_download(&self, conn: &Connection, id: &str) -> Result<(), String> {
+        let status: String = conn
+            .query_row("SELECT status FROM downloads WHERE id = ?1", params![id], |r| r.get(0))
+            .map_err(|_| "Download not found".to_string())?;
+
+        if status != "downloading" && status != "paused" {
+            return Err(format!("Cannot cancel download in '{}' state", status));
+        }
+
+        self.sigterm_process(id);
         conn.execute(
             "UPDATE downloads SET status = 'cancelled' WHERE id = ?1",
             params![id],
@@ -922,10 +1028,16 @@ impl DownloadManager {
     }
 
     pub fn pause_download(&self, conn: &Connection, id: &str) -> Result<(), String> {
-        // Kill the process - resume will use wget -c
-        if let Some(mut child) = self.active_processes.lock().unwrap().remove(id) {
-            let _ = child.kill();
+        let status: String = conn
+            .query_row("SELECT status FROM downloads WHERE id = ?1", params![id], |r| r.get(0))
+            .map_err(|_| "Download not found".to_string())?;
+
+        if status != "downloading" {
+            return Err(format!("Cannot pause download in '{}' state (409)", status));
         }
+
+        // SIGTERM the process - resume will use wget -c
+        self.sigterm_process(id);
         conn.execute(
             "UPDATE downloads SET status = 'paused' WHERE id = ?1",
             params![id],
@@ -933,7 +1045,20 @@ impl DownloadManager {
         Ok(())
     }
 
-    pub fn resume_download(&self, conn: &Connection, id: &str) -> Result<(), String> {
+    pub fn resume_download(&self, db: &Arc<Mutex<Connection>>, id: &str, max_concurrent: usize) -> Result<(), String> {
+        let conn = db.lock().unwrap();
+        let status: String = conn
+            .query_row("SELECT status FROM downloads WHERE id = ?1", params![id], |r| r.get(0))
+            .map_err(|_| "Download not found".to_string())?;
+
+        if status != "paused" {
+            return Err(format!("Cannot resume download in '{}' state (409)", status));
+        }
+
+        if self.active_count() >= max_concurrent {
+            return Err("Concurrency limit reached".to_string());
+        }
+
         let mut stmt = conn.prepare(
             "SELECT url, save_path, flags FROM downloads WHERE id = ?1"
         ).map_err(|e| format!("DB error: {}", e))?;
@@ -955,34 +1080,96 @@ impl DownloadManager {
             flags.push("--continue".to_string());
         }
 
-        let child = wget::spawn_wget(&url, &save_path, &flags)
-            .map_err(|e| format!("Failed to spawn wget: {}", e))?;
-
-        self.active_processes
-            .lock()
-            .unwrap()
-            .insert(id.to_string(), child);
-
         conn.execute(
             "UPDATE downloads SET status = 'downloading' WHERE id = ?1",
             params![id],
         ).map_err(|e| format!("DB error: {}", e))?;
 
+        drop(conn); // Release lock before spawning
+
+        // Re-use start_download logic (without re-inserting into DB)
+        let mut child = wget::spawn_wget(&url, &save_path, &flags)
+            .map_err(|e| format!("Failed to spawn wget: {}", e))?;
+
+        let stderr = child.stderr.take();
+        self.active_processes.lock().unwrap().insert(id.to_string(), child);
+
+        // Spawn monitor thread (same as start_download)
+        let monitor_id = id.to_string();
+        let monitor_db = db.clone();
+        let monitor_progress = self.live_progress.clone();
+        std::thread::spawn(move || {
+            if let Some(stderr) = stderr {
+                let reader = BufReader::new(stderr);
+                for line in reader.lines().flatten() {
+                    if let Some(progress) = wget::parse_progress_line(&line) {
+                        monitor_progress.lock().unwrap().insert(monitor_id.clone(), LiveProgress {
+                            progress: progress.percent,
+                            speed: progress.speed,
+                            eta: progress.eta,
+                        });
+                        if let Ok(conn) = monitor_db.lock() {
+                            let _ = conn.execute(
+                                "UPDATE downloads SET progress = ?1 WHERE id = ?2",
+                                params![progress.percent, monitor_id],
+                            );
+                        }
+                    }
+                }
+            }
+            let conn = monitor_db.lock().unwrap();
+            let _ = conn.execute(
+                "UPDATE downloads SET status = 'completed', progress = 100.0, completed_at = datetime('now') WHERE id = ?1 AND status = 'downloading'",
+                params![monitor_id],
+            );
+            monitor_progress.lock().unwrap().remove(&monitor_id);
+        });
+
         Ok(())
     }
 
-    pub fn get_downloads(conn: &Connection) -> Result<Vec<Download>, String> {
+    pub fn get_download(conn: &Connection, id: &str, live: &Arc<Mutex<HashMap<String, LiveProgress>>>) -> Result<Download, String> {
+        let mut stmt = conn.prepare(
+            "SELECT id, url, status, progress, save_path, flags, error_message, wget_exit_code, file_size, created_at, completed_at FROM downloads WHERE id = ?1"
+        ).map_err(|e| format!("DB error: {}", e))?;
+
+        let live_data = live.lock().unwrap();
+        stmt.query_row(params![id], |row| {
+            let dl_id: String = row.get(0)?;
+            let live_info = live_data.get(&dl_id);
+            Ok(Download {
+                id: dl_id,
+                url: row.get(1)?,
+                status: row.get(2)?,
+                progress: live_info.map(|l| l.progress).unwrap_or(row.get(3)?),
+                save_path: row.get(4)?,
+                flags: row.get(5)?,
+                error_message: row.get(6)?,
+                wget_exit_code: row.get(7)?,
+                file_size: row.get(8)?,
+                created_at: row.get(9)?,
+                completed_at: row.get(10)?,
+                speed: live_info.map(|l| l.speed.clone()),
+                eta: live_info.map(|l| l.eta.clone()),
+            })
+        }).map_err(|e| format!("Download not found: {}", e))
+    }
+
+    pub fn get_downloads(conn: &Connection, live: &Arc<Mutex<HashMap<String, LiveProgress>>>) -> Result<Vec<Download>, String> {
         let mut stmt = conn.prepare(
             "SELECT id, url, status, progress, save_path, flags, error_message, wget_exit_code, file_size, created_at, completed_at FROM downloads ORDER BY created_at DESC"
         ).map_err(|e| format!("DB error: {}", e))?;
 
+        let live_data = live.lock().unwrap();
         let downloads = stmt
             .query_map([], |row| {
+                let dl_id: String = row.get(0)?;
+                let live_info = live_data.get(&dl_id);
                 Ok(Download {
-                    id: row.get(0)?,
+                    id: dl_id,
                     url: row.get(1)?,
                     status: row.get(2)?,
-                    progress: row.get(3)?,
+                    progress: live_info.map(|l| l.progress).unwrap_or(row.get(3)?),
                     save_path: row.get(4)?,
                     flags: row.get(5)?,
                     error_message: row.get(6)?,
@@ -990,8 +1177,8 @@ impl DownloadManager {
                     file_size: row.get(8)?,
                     created_at: row.get(9)?,
                     completed_at: row.get(10)?,
-                    speed: None,
-                    eta: None,
+                    speed: live_info.map(|l| l.speed.clone()),
+                    eta: live_info.map(|l| l.eta.clone()),
                 })
             })
             .map_err(|e| format!("DB error: {}", e))?
@@ -1437,6 +1624,23 @@ async fn get_settings_handler(
         })
 }
 
+async fn get_download_by_id(
+    AxumState(state): AxumState<Arc<ApiState>>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Result<Json<Download>, (StatusCode, Json<ErrorResponse>)> {
+    check_auth(&headers, &state.api_token)?;
+    let conn = state.db.lock().unwrap();
+    DownloadManager::get_download(&conn, &id, &state.download_manager.live_progress())
+        .map(Json)
+        .map_err(|e| {
+            (
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse { error: e }),
+            )
+        })
+}
+
 async fn update_settings_handler(
     AxumState(state): AxumState<Arc<ApiState>>,
     headers: HeaderMap,
@@ -1474,6 +1678,7 @@ pub async fn start_api_server(
         .route("/health", get(health))
         .route("/download", post(create_download))
         .route("/downloads", get(list_downloads))
+        .route("/downloads/{id}", get(get_download_by_id))
         .route("/downloads/{id}/pause", post(pause))
         .route("/downloads/{id}/resume", post(resume))
         .route("/downloads/{id}", delete(cancel))
@@ -2980,26 +3185,158 @@ export function Popup() {
 }
 ```
 
-- [ ] **Step 7: Add build script to copy manifest into dist**
+- [ ] **Step 7: Create Firefox manifest**
+
+```json
+// apps/extension/manifests/firefox-manifest.json
+{
+  "manifest_version": 2,
+  "name": "Yoinkit",
+  "version": "0.1.0",
+  "description": "Download anything from the web with one click. Powered by Wget.",
+  "permissions": [
+    "activeTab",
+    "contextMenus",
+    "storage"
+  ],
+  "browser_action": {
+    "default_title": "Yoinkit - Click to download"
+  },
+  "background": {
+    "scripts": ["service-worker.js"]
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
+```
+
+- [ ] **Step 8: Create extension Options page**
+
+```html
+<!-- apps/extension/src/options/options.html -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Yoinkit Options</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./main.tsx"></script>
+  </body>
+</html>
+```
+
+```tsx
+// apps/extension/src/options/main.tsx
+import React from "react";
+import ReactDOM from "react-dom/client";
+import { Options } from "./Options";
+
+ReactDOM.createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <Options />
+  </React.StrictMode>
+);
+```
+
+```tsx
+// apps/extension/src/options/Options.tsx
+import { useEffect, useState } from "react";
+import { checkHealth, getSettings, setToken } from "../lib/api";
+
+export function Options() {
+  const [connected, setConnected] = useState(false);
+  const [token, setTokenValue] = useState("");
+  const [oneClickMode, setOneClickMode] = useState("page");
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    checkHealth().then(setConnected);
+    chrome.storage.local.get(["api_token", "one_click_mode"], (result) => {
+      if (result.api_token) setTokenValue(result.api_token);
+      if (result.one_click_mode) setOneClickMode(result.one_click_mode);
+    });
+  }, []);
+
+  const handleSave = async () => {
+    await setToken(token);
+    chrome.storage.local.set({ one_click_mode: oneClickMode });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  return (
+    <div style={{ maxWidth: 500, margin: "2rem auto", fontFamily: "system-ui" }}>
+      <h1>Yoinkit Options</h1>
+      <p>Status: {connected ? "Connected" : "Not connected"}</p>
+
+      <h3>API Token</h3>
+      <p style={{ fontSize: "0.85em", color: "#666" }}>
+        Find this at ~/Library/Application Support/Yoinkit/api_token
+      </p>
+      <input
+        type="text"
+        value={token}
+        onChange={(e) => setTokenValue(e.target.value)}
+        placeholder="Paste API token..."
+        style={{ width: "100%", padding: 8, marginBottom: 16 }}
+      />
+
+      <h3>One-Click Behavior</h3>
+      <select
+        value={oneClickMode}
+        onChange={(e) => setOneClickMode(e.target.value)}
+        style={{ width: "100%", padding: 8, marginBottom: 16 }}
+      >
+        <option value="page">Download current page only</option>
+        <option value="site">Mirror whole site (recursive)</option>
+      </select>
+
+      <button onClick={handleSave} style={{ padding: "8px 24px" }}>
+        Save
+      </button>
+      {saved && <span style={{ marginLeft: 12, color: "green" }}>Saved!</span>}
+    </div>
+  );
+}
+```
+
+Add the options page to the Chrome manifest:
+```json
+"options_page": "src/options/options.html"
+```
+
+Add to the Vite config input:
+```ts
+options: resolve(__dirname, "src/options/options.html"),
+```
+
+- [ ] **Step 9: Add build script to copy manifest into dist**
 
 Add a post-build step in `apps/extension/package.json`:
 ```json
 "scripts": {
   "dev": "vite build --watch",
-  "build": "vite build && cp manifests/chrome-manifest.json dist/manifest.json"
+  "build": "vite build && cp manifests/chrome-manifest.json dist/manifest.json",
+  "build:firefox": "vite build && cp manifests/firefox-manifest.json dist/manifest.json"
 }
 ```
 
-- [ ] **Step 8: Verify extension builds**
+- [ ] **Step 10: Verify extension builds**
 
 Run: `cd apps/extension && pnpm install && pnpm build`
-Expected: `dist/` directory with `manifest.json`, `service-worker.js`, `src/popup/popup.html`
+Expected: `dist/` directory with `manifest.json`, `service-worker.js`, `src/popup/popup.html`, `src/options/options.html`
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 11: Commit**
 
 ```bash
 git add apps/extension/
-git commit -m "feat: add Chrome browser extension with one-click download and popup"
+git commit -m "feat: add browser extension with Chrome + Firefox manifests and options page"
 ```
 
 ---
@@ -3238,7 +3575,118 @@ git commit -m "feat: add wget static build script for macOS universal binary"
 
 ---
 
-## Task 14: Integration Testing & Polish
+## Task 14: Unit Tests for Core Logic
+
+**Files:**
+- Create: `apps/desktop/src-tauri/src/tests.rs`
+
+- [ ] **Step 1: Add tests module to lib.rs**
+
+Add `#[cfg(test)] mod tests;` to the bottom of `lib.rs`.
+
+- [ ] **Step 2: Write tests for wget progress parsing**
+
+```rust
+// apps/desktop/src-tauri/src/tests.rs
+use crate::wget::parse_progress_line;
+use crate::auth::validate_token;
+
+#[test]
+fn test_parse_progress_percent() {
+    let line = "  50% [=====>       ] 1,234,567   1.23MB/s  eta 2m 30s";
+    let result = parse_progress_line(line).unwrap();
+    assert_eq!(result.percent, 50.0);
+    assert_eq!(result.speed, "1.23MB/s");
+    assert!(result.eta.contains("2m"));
+}
+
+#[test]
+fn test_parse_progress_100() {
+    let line = " 100%[==================>] 5,000,000   2.50MB/s   in 2.0s";
+    let result = parse_progress_line(line).unwrap();
+    assert_eq!(result.percent, 100.0);
+}
+
+#[test]
+fn test_parse_progress_no_match() {
+    let line = "Resolving example.com...";
+    assert!(parse_progress_line(line).is_none());
+}
+
+#[test]
+fn test_validate_token_correct() {
+    assert!(validate_token("abc123", "abc123"));
+}
+
+#[test]
+fn test_validate_token_wrong() {
+    assert!(!validate_token("abc123", "xyz789"));
+}
+
+#[test]
+fn test_validate_token_different_lengths() {
+    assert!(!validate_token("short", "muchlongertoken"));
+}
+```
+
+- [ ] **Step 3: Write tests for flagsToArgs (TypeScript)**
+
+Create `apps/desktop/src/components/__tests__/flagsToArgs.test.ts`:
+
+```ts
+import { describe, it, expect } from "vitest";
+import { flagsToArgs, defaultFlags } from "../CommandBuilder";
+
+describe("flagsToArgs", () => {
+  it("returns empty array for default flags", () => {
+    expect(flagsToArgs(defaultFlags)).toEqual([]);
+  });
+
+  it("includes recursive flags", () => {
+    const flags = { ...defaultFlags, recursive: true, depth: 3 };
+    const args = flagsToArgs(flags);
+    expect(args).toContain("-r");
+    expect(args).toContain("-l");
+    expect(args).toContain("3");
+  });
+
+  it("includes mirror flags", () => {
+    const flags = { ...defaultFlags, mirror: true, convertLinks: true };
+    const args = flagsToArgs(flags);
+    expect(args).toContain("--mirror");
+    expect(args).toContain("-k");
+  });
+
+  it("splits raw flags on whitespace", () => {
+    const flags = { ...defaultFlags, rawFlags: "--no-check-certificate --timeout=30" };
+    const args = flagsToArgs(flags);
+    expect(args).toContain("--no-check-certificate");
+    expect(args).toContain("--timeout=30");
+  });
+});
+```
+
+- [ ] **Step 4: Run Rust tests**
+
+Run: `cd apps/desktop/src-tauri && cargo test`
+Expected: All tests pass
+
+- [ ] **Step 5: Run TypeScript tests**
+
+Add vitest to desktop dev dependencies and run:
+Run: `cd apps/desktop && pnpm add -D vitest && pnpm vitest run`
+Expected: All tests pass
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add apps/desktop/src-tauri/src/tests.rs apps/desktop/src/components/__tests__/
+git commit -m "test: add unit tests for wget parsing, auth validation, and flag building"
+```
+
+---
+
+## Task 15: Integration Testing & Polish
 
 - [ ] **Step 1: Build the wget binary**
 
@@ -3291,13 +3739,14 @@ git commit -m "fix: integration testing fixes"
 | 2 | Tauri app skeleton | 1 |
 | 3 | SQLite database layer | 2 |
 | 4 | Auth token generation | 3 |
-| 5 | Wget process manager | 3, 4 |
+| 5 | Wget process manager (with monitoring, SIGTERM, concurrency) | 3, 4 |
 | 6 | Tauri IPC commands | 5 |
-| 7 | Localhost REST API | 5, 4 |
+| 7 | Localhost REST API (with GET /downloads/:id) | 5, 4 |
 | 8 | Menu bar tray | 2 |
 | 9 | Simple mode frontend | 6 |
 | 10 | Pro mode frontend | 9 |
-| 11 | Browser extension | 7 |
+| 11 | Browser extension (Chrome + Firefox + options page) | 7 |
 | 12 | Shared UI components | 1 |
 | 13 | Bundled wget binary | — |
-| 14 | Integration testing | All |
+| 14 | Unit tests | 5, 10 |
+| 15 | Integration testing | All |
