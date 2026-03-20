@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "Yoinkit",
+  "version": "0.1.0",
+  "description": "Download anything from the web with one click. Powered by Wget.",
+  "permissions": [
+    "activeTab",
+    "contextMenus",
+    "storage"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1:9271/*"
+  ],
+  "action": {
+    "default_title": "Yoink this page",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "background": {
+    "service_worker": "service-worker.js",
+    "type": "module"
+  },
+  "options_page": "src/options/options.html",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  }
+}
