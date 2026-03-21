@@ -74,10 +74,12 @@ export const api = {
   deletePreset: (id: string) => invoke<void>("delete_preset", { id }),
 
   getVideoInfo: (url: string) => invoke<any>("get_video_info", { url }),
-  startVideoDownload: (url: string, format?: string, quality?: string, audioOnly?: boolean, savePath?: string) =>
-    invoke<string>("start_video_download", { url, format, quality, audioOnly: audioOnly || false, savePath }),
-  startAudioDownload: (url: string, format?: string, quality?: string, savePath?: string) =>
-    invoke<string>("start_audio_download", { url, format, quality, savePath }),
+  startVideoDownload: (url: string, format?: string, quality?: string, audioOnly?: boolean, savePath?: string, writeSubs?: boolean, subLang?: string, subFormat?: string) =>
+    invoke<string>("start_video_download", { url, format, quality, audioOnly: audioOnly || false, savePath, writeSubs, subLang, subFormat }),
+  startAudioDownload: (url: string, format?: string, quality?: string, savePath?: string, writeSubs?: boolean, subLang?: string, subFormat?: string) =>
+    invoke<string>("start_audio_download", { url, format, quality, savePath, writeSubs, subLang, subFormat }),
+  downloadSubtitles: (url: string, subLang?: string, subFormat?: string, autoSubs?: boolean, savePath?: string) =>
+    invoke<string>("download_subtitles", { url, subLang, subFormat, autoSubs, savePath }),
   scrapeImages: (url: string) => invoke<any[]>("scrape_images", { url }),
   downloadImages: (imageUrls: string[], savePath?: string) =>
     invoke<string>("download_images", { imageUrls, savePath }),

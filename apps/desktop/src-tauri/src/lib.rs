@@ -61,6 +61,7 @@ pub fn run() {
             commands::get_video_info,
             commands::start_video_download,
             commands::start_audio_download,
+            commands::download_subtitles,
             commands::scrape_images,
             commands::download_images,
         ])

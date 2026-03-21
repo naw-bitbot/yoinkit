@@ -119,12 +119,62 @@ pub async fn get_video_info(url: &str) -> Result<VideoInfo, String> {
     })
 }
 
+/// Download subtitles/transcript only
+pub async fn download_subtitles(
+    url: &str,
+    sub_lang: Option<&str>,
+    sub_format: Option<&str>,
+    auto_subs: bool,
+    save_dir: &str,
+) -> Result<String, String> {
+    let ytdlp = ytdlp_binary_path();
+    let lang = sub_lang.unwrap_or("en");
+    let fmt = sub_format.unwrap_or("srt");
+
+    let mut cmd = Command::new(&ytdlp);
+    cmd.arg("--skip-download")
+        .arg("--write-subs")
+        .arg("--sub-langs").arg(lang)
+        .arg("--convert-subs").arg(fmt);
+
+    if auto_subs {
+        cmd.arg("--write-auto-subs");
+    }
+
+    cmd.arg("-o").arg(format!("{}/%(title)s.%(ext)s", save_dir))
+        .arg(url)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+
+    let output = cmd.output().await.map_err(|e| format!("Failed to run yt-dlp: {}", e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("Subtitle download failed: {}", stderr));
+    }
+
+    Ok(format!("Subtitles saved to {}", save_dir))
+}
+
 /// Download video with yt-dlp
 pub async fn spawn_video_download(
     url: &str,
     format: Option<&str>,
     quality: Option<&str>,
     audio_only: bool,
+    save_dir: &str,
+) -> Result<(Child, mpsc::Receiver<YtdlpProgress>), String> {
+    spawn_video_download_with_subs(url, format, quality, audio_only, false, None, None, save_dir).await
+}
+
+pub async fn spawn_video_download_with_subs(
+    url: &str,
+    format: Option<&str>,
+    quality: Option<&str>,
+    audio_only: bool,
+    write_subs: bool,
+    sub_lang: Option<&str>,
+    sub_format: Option<&str>,
     save_dir: &str,
 ) -> Result<(Child, mpsc::Receiver<YtdlpProgress>), String> {
     let ytdlp = ytdlp_binary_path();
@@ -138,6 +188,14 @@ pub async fn spawn_video_download(
     // Set ffmpeg location if bundled
     if ffmpeg.exists() {
         cmd.arg("--ffmpeg-location").arg(ffmpeg.parent().unwrap_or(&ffmpeg));
+    }
+
+    // Subtitles
+    if write_subs {
+        cmd.arg("--write-subs")
+            .arg("--write-auto-subs")
+            .arg("--sub-langs").arg(sub_lang.unwrap_or("en"))
+            .arg("--convert-subs").arg(sub_format.unwrap_or("srt"));
     }
 
     if audio_only {

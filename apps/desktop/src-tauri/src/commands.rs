@@ -109,6 +109,9 @@ pub async fn start_video_download(
     quality: Option<String>,
     audio_only: bool,
     save_path: Option<String>,
+    write_subs: Option<bool>,
+    sub_lang: Option<String>,
+    sub_format: Option<String>,
 ) -> Result<String, String> {
     let save_dir = save_path.unwrap_or_else(|| {
         state.db.get_setting("default_save_path")
@@ -143,11 +146,14 @@ pub async fn start_video_download(
     let dl_id = id.clone();
 
     tokio::spawn(async move {
-        match ytdlp::spawn_video_download(
+        match ytdlp::spawn_video_download_with_subs(
             &url,
             format.as_deref(),
             quality.as_deref(),
             audio_only,
+            write_subs.unwrap_or(false),
+            sub_lang.as_deref(),
+            sub_format.as_deref(),
             &expanded,
         ).await {
             Ok((mut child, mut progress_rx)) => {
@@ -205,8 +211,81 @@ pub async fn start_audio_download(
     format: Option<String>,
     quality: Option<String>,
     save_path: Option<String>,
+    write_subs: Option<bool>,
+    sub_lang: Option<String>,
+    sub_format: Option<String>,
 ) -> Result<String, String> {
-    start_video_download(state, url, format, quality, true, save_path).await
+    start_video_download(state, url, format, quality, true, save_path, write_subs, sub_lang, sub_format).await
+}
+
+#[tauri::command]
+pub async fn download_subtitles(
+    state: State<'_, AppState>,
+    url: String,
+    sub_lang: Option<String>,
+    sub_format: Option<String>,
+    auto_subs: Option<bool>,
+    save_path: Option<String>,
+) -> Result<String, String> {
+    let save_dir = save_path.unwrap_or_else(|| {
+        state.db.get_setting("default_save_path")
+            .ok()
+            .flatten()
+            .unwrap_or_else(|| "~/Downloads/Yoinkit".to_string())
+    });
+    let expanded = shellexpand::tilde(&save_dir).to_string();
+    std::fs::create_dir_all(&expanded).map_err(|e| format!("Failed to create dir: {}", e))?;
+
+    let id = uuid::Uuid::new_v4().to_string();
+    let now = chrono::Utc::now().to_rfc3339();
+
+    let download = crate::db::Download {
+        id: id.clone(),
+        url: url.clone(),
+        status: "downloading".to_string(),
+        progress: 0.0,
+        save_path: expanded.clone(),
+        flags: "subtitles".to_string(),
+        file_size: None,
+        speed: None,
+        eta: None,
+        error: None,
+        created_at: now,
+        completed_at: None,
+    };
+
+    state.db.insert_download(&download).map_err(|e| format!("DB error: {}", e))?;
+
+    let db = state.db.clone();
+    let dl_id = id.clone();
+
+    tokio::spawn(async move {
+        match ytdlp::download_subtitles(
+            &url,
+            sub_lang.as_deref(),
+            sub_format.as_deref(),
+            auto_subs.unwrap_or(true),
+            &expanded,
+        ).await {
+            Ok(_) => {
+                if let Ok(Some(mut dl)) = db.get_download(&dl_id) {
+                    dl.status = "completed".to_string();
+                    dl.progress = 100.0;
+                    dl.completed_at = Some(chrono::Utc::now().to_rfc3339());
+                    let _ = db.update_download(&dl);
+                }
+            }
+            Err(e) => {
+                if let Ok(Some(mut dl)) = db.get_download(&dl_id) {
+                    dl.status = "failed".to_string();
+                    dl.error = Some(e);
+                    let _ = db.update_download(&dl);
+                }
+            }
+        }
+    });
+
+    Ok(id)
 }
 
 // Image scraping commands

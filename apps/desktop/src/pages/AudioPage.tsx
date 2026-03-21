@@ -9,7 +9,20 @@ export function AudioPage() {
   const [loading, setLoading] = useState(false);
   const [format, setFormat] = useState("mp3");
   const [quality, setQuality] = useState("192");
+  const [writeSubs, setWriteSubs] = useState(false);
+  const [subLang, setSubLang] = useState("en");
+  const [subFormat, setSubFormat] = useState("srt");
   const [error, setError] = useState<string | null>(null);
+
+  const subFormats = ["srt", "vtt", "txt"];
+  const subLangs = [
+    { label: "English", value: "en" },
+    { label: "Spanish", value: "es" },
+    { label: "French", value: "fr" },
+    { label: "German", value: "de" },
+    { label: "Japanese", value: "ja" },
+    { label: "All", value: "all" },
+  ];
 
   const formats = ["mp3", "aac", "flac", "wav", "opus"];
   const qualities = [
@@ -23,7 +36,7 @@ export function AudioPage() {
     setLoading(true);
     setError(null);
     try {
-      await startVideoDownload(url.trim(), format, quality, true);
+      await startVideoDownload(url.trim(), format, quality, true, writeSubs, subLang, subFormat);
       setUrl("");
     } catch (err: any) {
       setError(typeof err === "string" ? err : err.message || "Download failed");
@@ -97,6 +110,53 @@ export function AudioPage() {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Transcript toggle */}
+        <div className="bg-yoinkit-surface/50 rounded-lg p-3 space-y-2">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={writeSubs}
+              onChange={e => setWriteSubs(e.target.checked)}
+              className="rounded border-yoinkit-muted/30 bg-yoinkit-surface"
+            />
+            <span className="text-sm text-yoinkit-text">Include transcript/lyrics</span>
+          </label>
+          {writeSubs && (
+            <div className="flex items-center gap-4 ml-6">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-yoinkit-muted">Language:</span>
+                <select
+                  value={subLang}
+                  onChange={e => setSubLang(e.target.value)}
+                  className="bg-yoinkit-surface text-yoinkit-text text-xs rounded px-2 py-1 border border-yoinkit-muted/20"
+                >
+                  {subLangs.map(l => (
+                    <option key={l.value} value={l.value}>{l.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-yoinkit-muted">Format:</span>
+                <div className="flex gap-1">
+                  {subFormats.map(f => (
+                    <button
+                      key={f}
+                      onClick={() => setSubFormat(f)}
+                      className={`px-2 py-0.5 text-xs rounded transition-colors ${
+                        subFormat === f
+                          ? "bg-yoinkit-secondary text-white"
+                          : "bg-yoinkit-bg text-yoinkit-muted hover:text-yoinkit-text"
+                      }`}
+                    >
+                      .{f}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

@@ -28,9 +28,27 @@ export function VideoPage() {
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(false);
   const [quality, setQuality] = useState("1080p");
+  const [writeSubs, setWriteSubs] = useState(false);
+  const [subLang, setSubLang] = useState("en");
+  const [subFormat, setSubFormat] = useState("srt");
+  const [subsOnly, setSubsOnly] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const qualities = ["4k", "1080p", "720p", "480p", "360p"];
+  const subFormats = ["srt", "vtt", "ass", "txt"];
+  const subLangs = [
+    { label: "English", value: "en" },
+    { label: "Spanish", value: "es" },
+    { label: "French", value: "fr" },
+    { label: "German", value: "de" },
+    { label: "Japanese", value: "ja" },
+    { label: "Korean", value: "ko" },
+    { label: "Chinese", value: "zh" },
+    { label: "Portuguese", value: "pt" },
+    { label: "Arabic", value: "ar" },
+    { label: "Hindi", value: "hi" },
+    { label: "All", value: "all" },
+  ];
 
   const handleFetchInfo = async () => {
     if (!url.trim()) return;
@@ -52,7 +70,12 @@ export function VideoPage() {
     setLoading(true);
     setError(null);
     try {
-      await startVideoDownload(url.trim(), undefined, quality, false);
+      if (subsOnly) {
+        const { invoke } = await import("@tauri-apps/api/core");
+        await invoke("download_subtitles", { url: url.trim(), subLang, subFormat, autoSubs: true });
+      } else {
+        await startVideoDownload(url.trim(), undefined, quality, false, writeSubs, subLang, subFormat);
+      }
     } catch (err: any) {
       setError(typeof err === "string" ? err : err.message || "Download failed");
     } finally {
@@ -65,7 +88,12 @@ export function VideoPage() {
     setLoading(true);
     setError(null);
     try {
-      await startVideoDownload(url.trim(), undefined, quality, false);
+      if (subsOnly) {
+        const { invoke } = await import("@tauri-apps/api/core");
+        await invoke("download_subtitles", { url: url.trim(), subLang, subFormat, autoSubs: true });
+      } else {
+        await startVideoDownload(url.trim(), undefined, quality, false, writeSubs, subLang, subFormat);
+      }
       setUrl("");
       setVideoInfo(null);
     } catch (err: any) {
@@ -131,6 +159,65 @@ export function VideoPage() {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Subtitles / Transcript */}
+        <div className="bg-yoinkit-surface/50 rounded-lg p-3 space-y-2">
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={writeSubs}
+                onChange={e => { setWriteSubs(e.target.checked); if (e.target.checked) setSubsOnly(false); }}
+                className="rounded border-yoinkit-muted/30 bg-yoinkit-surface"
+              />
+              <span className="text-sm text-yoinkit-text">Include subtitles</span>
+            </label>
+            <span className="text-yoinkit-muted/30">|</span>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={subsOnly}
+                onChange={e => { setSubsOnly(e.target.checked); if (e.target.checked) setWriteSubs(false); }}
+                className="rounded border-yoinkit-muted/30 bg-yoinkit-surface"
+              />
+              <span className="text-sm text-yoinkit-text">Transcript only</span>
+            </label>
+          </div>
+          {(writeSubs || subsOnly) && (
+            <div className="flex items-center gap-4 ml-6">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-yoinkit-muted">Language:</span>
+                <select
+                  value={subLang}
+                  onChange={e => setSubLang(e.target.value)}
+                  className="bg-yoinkit-surface text-yoinkit-text text-xs rounded px-2 py-1 border border-yoinkit-muted/20"
+                >
+                  {subLangs.map(l => (
+                    <option key={l.value} value={l.value}>{l.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-yoinkit-muted">Format:</span>
+                <div className="flex gap-1">
+                  {subFormats.map(f => (
+                    <button
+                      key={f}
+                      onClick={() => setSubFormat(f)}
+                      className={`px-2 py-0.5 text-xs rounded transition-colors ${
+                        subFormat === f
+                          ? "bg-yoinkit-primary text-white"
+                          : "bg-yoinkit-bg text-yoinkit-muted hover:text-yoinkit-text"
+                      }`}
+                    >
+                      .{f}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
