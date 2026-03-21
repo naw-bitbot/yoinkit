@@ -154,4 +154,7 @@ export const api = {
   chatClear: () => invoke<void>("chat_clear"),
 
   structureTranscript: (transcript: string) => invoke<Clip>("structure_transcript_cmd", { transcript }),
+
+  exportClipNotebooklm: (id: string, exportDir: string) => invoke<string>("export_clip_notebooklm", { id, exportDir }),
+  exportBatchNotebooklm: (ids: string[], exportDir: string, batchName: string) => invoke<string>("export_batch_notebooklm", { ids, exportDir, batchName }),
 };

@@ -655,3 +655,23 @@ pub async fn structure_transcript_cmd(transcript: String, state: State<'_, AppSt
     state.db.insert_clip(&clip).map_err(|e| format!("DB error: {}", e))?;
     Ok(clip)
 }
+
+#[tauri::command]
+pub fn export_clip_notebooklm(id: String, export_dir: String, state: State<'_, AppState>) -> Result<String, String> {
+    let clip = state.db.get_clip(&id)
+        .map_err(|e| format!("DB error: {}", e))?
+        .ok_or_else(|| format!("Clip not found: {}", id))?;
+    crate::notebooklm::export_for_notebooklm(&clip, &export_dir)
+}
+
+#[tauri::command]
+pub fn export_batch_notebooklm(ids: Vec<String>, export_dir: String, batch_name: String, state: State<'_, AppState>) -> Result<String, String> {
+    let mut clips = Vec::new();
+    for id in &ids {
+        let clip = state.db.get_clip(id)
+            .map_err(|e| format!("DB error: {}", e))?
+            .ok_or_else(|| format!("Clip not found: {}", id))?;
+        clips.push(clip);
+    }
+    crate::notebooklm::export_batch_for_notebooklm(&clips, &export_dir, &batch_name)
+}

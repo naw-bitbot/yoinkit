@@ -103,6 +103,8 @@ pub fn run() {
             commands::chat_history,
             commands::chat_clear,
             commands::structure_transcript_cmd,
+            commands::export_clip_notebooklm,
+            commands::export_batch_notebooklm,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
