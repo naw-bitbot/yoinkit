@@ -33,7 +33,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": ["bin/wget", "bin/libs/*"],
+    "resources": ["bin/wget", "bin/yt-dlp", "bin/ffmpeg", "bin/libs/*"],
     "macOS": {
       "frameworks": []
     }

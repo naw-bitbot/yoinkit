@@ -159,6 +159,43 @@ jobs:
             echo "All clear — no Homebrew paths remain."
           fi
 
+      - name: Bundle yt-dlp and ffmpeg
+        run: |
+          BIN_DIR=apps/desktop/src-tauri/bin
+
+          # Download yt-dlp (standalone binary)
+          echo "=== Downloading yt-dlp ==="
+          if [[ "${{ matrix.target }}" == "aarch64-apple-darwin" ]]; then
+            curl -L -o "$BIN_DIR/yt-dlp" "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos"
+          else
+            curl -L -o "$BIN_DIR/yt-dlp" "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos"
+          fi
+          chmod +x "$BIN_DIR/yt-dlp"
+
+          # Download ffmpeg (static build)
+          echo "=== Downloading ffmpeg ==="
+          if [[ "${{ matrix.target }}" == "aarch64-apple-darwin" ]]; then
+            curl -L -o ffmpeg.zip "https://evermeet.cx/ffmpeg/getrelease/zip"
+          else
+            curl -L -o ffmpeg.zip "https://evermeet.cx/ffmpeg/getrelease/zip"
+          fi
+          unzip -o ffmpeg.zip -d "$BIN_DIR/"
+          chmod +x "$BIN_DIR/ffmpeg"
+          rm ffmpeg.zip
+
+          # Codesign both binaries
+          codesign --force --sign - "$BIN_DIR/yt-dlp"
+          codesign --force --sign - "$BIN_DIR/ffmpeg"
+
+          # Strip quarantine attributes
+          xattr -cr "$BIN_DIR/yt-dlp"
+          xattr -cr "$BIN_DIR/ffmpeg"
+
+          echo "=== Verifying binaries ==="
+          file "$BIN_DIR/yt-dlp"
+          file "$BIN_DIR/ffmpeg"
+          ls -la "$BIN_DIR/"
+
       - name: Build Tauri app
         env:
           TAURI_SIGNING_PRIVATE_KEY: ""
@@ -183,6 +220,14 @@ jobs:
             WGET_IN_APP="$APP_PATH/Contents/Resources/bin/wget"
             if [ -f "$WGET_IN_APP" ]; then
               codesign --force --sign - "$WGET_IN_APP"
+            fi
+            YTDLP_IN_APP="$APP_PATH/Contents/Resources/bin/yt-dlp"
+            if [ -f "$YTDLP_IN_APP" ]; then
+              codesign --force --sign - "$YTDLP_IN_APP"
+            fi
+            FFMPEG_IN_APP="$APP_PATH/Contents/Resources/bin/ffmpeg"
+            if [ -f "$FFMPEG_IN_APP" ]; then
+              codesign --force --sign - "$FFMPEG_IN_APP"
             fi
             # Re-sign the entire app bundle
             codesign --force --deep --sign - "$APP_PATH"
