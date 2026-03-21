@@ -6,6 +6,8 @@ mod download_manager;
 mod settings;
 mod tray;
 mod wget;
+mod ytdlp;
+mod image_scraper;
 
 use auth::AuthManager;
 use commands::AppState;
@@ -56,6 +58,11 @@ pub fn run() {
             commands::list_presets,
             commands::delete_preset,
             commands::get_auth_token,
+            commands::get_video_info,
+            commands::start_video_download,
+            commands::start_audio_download,
+            commands::scrape_images,
+            commands::download_images,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
