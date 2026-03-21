@@ -1,5 +1,5 @@
 import { useState, createContext, useContext } from "react";
-import { Download, Video, Music, ImageIcon, Zap, Settings, Sun, Moon, Monitor, type LucideProps } from "lucide-react";
+import { Download, Video, Music, ImageIcon, Zap, Settings, Sun, Moon, Monitor, Scissors, type LucideProps } from "lucide-react";
 import { useTheme } from "./hooks/useTheme";
 
 import { SimplePage } from "./pages/SimplePage";
@@ -8,8 +8,9 @@ import { AudioPage } from "./pages/AudioPage";
 import { ImagesPage } from "./pages/ImagesPage";
 import { ProPage } from "./pages/ProPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { ClipperPage } from "./pages/ClipperPage";
 
-type Page = "simple" | "video" | "audio" | "images" | "pro" | "settings";
+type Page = "simple" | "video" | "audio" | "images" | "clipper" | "pro" | "settings";
 type Theme = "light" | "dark" | "system";
 
 interface ThemeContextType {
@@ -31,6 +32,7 @@ const NAV_ITEMS: { id: Page; label: string; icon: React.ComponentType<LucideProp
   { id: "video", label: "Video", icon: Video },
   { id: "audio", label: "Audio", icon: Music },
   { id: "images", label: "Images", icon: ImageIcon },
+  { id: "clipper", label: "Clipper", icon: Scissors },
   { id: "pro", label: "Pro", icon: Zap },
   { id: "settings", label: "Settings", icon: Settings },
 ];
@@ -102,6 +104,7 @@ function App() {
           {page === "video" && <VideoPage />}
           {page === "audio" && <AudioPage />}
           {page === "images" && <ImagesPage />}
+          {page === "clipper" && <ClipperPage />}
           {page === "pro" && <ProPage />}
           {page === "settings" && <SettingsPage />}
         </main>
