@@ -23,6 +23,9 @@ chrono = "0.4"
 shellexpand = "3"
 hex = "0.4"
 regex-lite = "0.1"
+scraper = "0.21"
+reqwest = { version = "0.12", features = ["json", "native-tls-vendored"] }
+sha2 = "0.10"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }

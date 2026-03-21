@@ -8,6 +8,7 @@ mod tray;
 mod wget;
 mod ytdlp;
 mod image_scraper;
+mod clipper;
 
 use auth::AuthManager;
 use commands::AppState;
