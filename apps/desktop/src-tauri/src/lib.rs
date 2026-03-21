@@ -13,6 +13,8 @@ mod wget;
 mod ytdlp;
 mod image_scraper;
 mod clipper;
+mod mcp_server;
+mod notebooklm;
 
 use auth::AuthManager;
 use commands::AppState;

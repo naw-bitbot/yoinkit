@@ -86,6 +86,34 @@ pub struct Database {
 }
 
 impl Database {
+    pub fn new_with_path(path: &str) -> Result<Self> {
+        let db_path = PathBuf::from(path);
+        std::fs::create_dir_all(db_path.parent().unwrap()).ok();
+        let conn = Connection::open(&db_path)?;
+
+        conn.execute_batch("
+            CREATE TABLE IF NOT EXISTS schema_version (
+                version INTEGER PRIMARY KEY,
+                applied_at TEXT NOT NULL
+            );
+        ")?;
+
+        let current_version: i64 = conn.query_row(
+            "SELECT COALESCE(MAX(version), 0) FROM schema_version", [], |row| row.get(0)
+        ).unwrap_or(0);
+
+        if current_version < 1 {
+            Self::migrate_v1(&conn)?;
+        }
+        if current_version < 2 {
+            Self::migrate_v2(&conn)?;
+        }
+
+        let db = Self { conn: Mutex::new(conn) };
+        db.init_default_settings()?;
+        Ok(db)
+    }
+
     pub fn new() -> Result<Self> {
         let db_path = Self::db_path();
         std::fs::create_dir_all(db_path.parent().unwrap()).ok();
