@@ -3,6 +3,7 @@ mod auth;
 mod commands;
 mod db;
 mod download_manager;
+mod markdown;
 mod settings;
 mod tray;
 mod wget;
