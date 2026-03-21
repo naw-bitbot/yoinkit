@@ -13,10 +13,10 @@ interface DownloadListProps {
 export function DownloadList({ downloads, onPause, onResume, onCancel, onDelete }: DownloadListProps) {
   if (downloads.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-yoinkit-text-muted">
-        <Inbox size={32} strokeWidth={1.5} />
-        <p className="mt-3 text-sm">No downloads yet</p>
-        <p className="text-xs text-yoinkit-text-muted/60 mt-1">Paste a URL above to get started</p>
+      <div className="flex flex-col items-center justify-center py-12">
+        <Inbox size={28} strokeWidth={1} style={{ color: 'var(--text-tertiary)' }} />
+        <p className="mt-2 text-[13px] font-medium" style={{ color: 'var(--text-tertiary)' }}>No downloads yet</p>
+        <p className="text-[11px] mt-1" style={{ color: 'var(--text-tertiary)', opacity: 0.6 }}>Paste a URL above to get started</p>
       </div>
     );
   }

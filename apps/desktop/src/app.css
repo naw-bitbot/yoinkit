@@ -4,26 +4,174 @@
 
 @layer base {
   body {
-    @apply bg-yoinkit-bg text-yoinkit-text antialiased;
+    @apply antialiased;
+    font-feature-settings: 'kern' 1, 'liga' 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Light theme (default) */
+  body {
+    --bg: #F2F2F7;
+    --surface: rgba(255, 255, 255, 0.72);
+    --surface-solid: #FFFFFF;
+    --surface-secondary: rgba(255, 255, 255, 0.5);
+    --elevated: rgba(255, 255, 255, 0.85);
+    --border: rgba(0, 0, 0, 0.06);
+    --border-strong: rgba(0, 0, 0, 0.12);
+    --text: #1C1C1E;
+    --text-secondary: rgba(60, 60, 67, 0.6);
+    --text-tertiary: #8E8E93;
+    --separator: rgba(60, 60, 67, 0.12);
+    --fill: rgba(120, 120, 128, 0.08);
+    --accent: #007AFF;
+    --accent-hover: #0066D6;
+    --brand: #FF6B35;
+    --success: #34C759;
+    --danger: #FF3B30;
+    --warning: #FF9500;
+    --sidebar-bg: rgba(246, 246, 246, 0.85);
+    background-color: var(--bg);
+    color: var(--text);
+  }
+
+  /* Dark theme */
+  body.dark {
+    --bg: #000000;
+    --surface: rgba(44, 44, 46, 0.72);
+    --surface-solid: #1C1C1E;
+    --surface-secondary: rgba(44, 44, 46, 0.5);
+    --elevated: rgba(44, 44, 46, 0.85);
+    --border: rgba(255, 255, 255, 0.06);
+    --border-strong: rgba(255, 255, 255, 0.12);
+    --text: #FFFFFF;
+    --text-secondary: rgba(235, 235, 245, 0.6);
+    --text-tertiary: #8E8E93;
+    --separator: rgba(84, 84, 88, 0.36);
+    --fill: rgba(120, 120, 128, 0.24);
+    --accent: #0A84FF;
+    --accent-hover: #409CFF;
+    --brand: #FF6B35;
+    --success: #30D158;
+    --danger: #FF453A;
+    --warning: #FF9F0A;
+    --sidebar-bg: rgba(28, 28, 30, 0.85);
+    background-color: var(--bg);
+    color: var(--text);
   }
 
   ::-webkit-scrollbar {
     width: 6px;
   }
   ::-webkit-scrollbar-track {
-    @apply bg-transparent;
+    background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    @apply bg-yoinkit-border rounded-full;
+    background: var(--text-tertiary);
+    border-radius: 9999px;
+    opacity: 0.5;
   }
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-yoinkit-text-muted;
+    opacity: 1;
   }
 
-  input[type="checkbox"] {
-    @apply accent-yoinkit-accent;
-  }
+  input[type="checkbox"],
   input[type="radio"] {
-    @apply accent-yoinkit-accent;
+    accent-color: var(--accent);
+  }
+}
+
+@layer components {
+  /* Liquid Glass surface */
+  .glass {
+    background: var(--surface);
+    backdrop-filter: blur(40px) saturate(180%);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    border: 0.5px solid var(--border);
+  }
+
+  .glass-heavy {
+    background: var(--elevated);
+    backdrop-filter: blur(80px) saturate(200%);
+    -webkit-backdrop-filter: blur(80px) saturate(200%);
+    border: 0.5px solid var(--border);
+  }
+
+  .glass-sidebar {
+    background: var(--sidebar-bg);
+    backdrop-filter: blur(80px) saturate(180%);
+    -webkit-backdrop-filter: blur(80px) saturate(180%);
+  }
+
+  /* Apple-style input */
+  .apple-input {
+    background: var(--fill);
+    border: 0.5px solid var(--border-strong);
+    border-radius: 6px;
+    color: var(--text);
+    transition: all 0.2s ease;
+  }
+  .apple-input:focus {
+    outline: none;
+    box-shadow: 0 0 0 3.5px rgba(0, 122, 255, 0.3);
+    border-color: var(--accent);
+  }
+  .apple-input::placeholder {
+    color: var(--text-tertiary);
+  }
+
+  /* Apple-style pill selector */
+  /* macOS segmented control */
+  .apple-pill {
+    background: var(--fill);
+    border-radius: 6px;
+    padding: 1.5px;
+  }
+  .apple-pill-item {
+    border-radius: 5px;
+    padding: 3px 10px;
+    font-size: 11px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    color: var(--text-secondary);
+  }
+  .apple-pill-item.active {
+    background: var(--surface-solid);
+    color: var(--text);
+    box-shadow: 0 0.5px 2px rgba(0,0,0,0.08), 0 0.5px 0 rgba(0,0,0,0.04);
+  }
+
+  body.dark .apple-pill-item.active {
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+
+  /* macOS-style toggle switch (smaller than iOS) */
+  .apple-toggle {
+    width: 38px;
+    height: 22px;
+    border-radius: 11px;
+    background: var(--fill);
+    border: none;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.3s ease;
+  }
+  .apple-toggle.active {
+    background: var(--accent);
+  }
+  .apple-toggle::after {
+    content: '';
+    width: 18px;
+    height: 18px;
+    border-radius: 9px;
+    background: white;
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    transition: transform 0.3s ease;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+  }
+  .apple-toggle.active::after {
+    transform: translateX(16px);
   }
 }

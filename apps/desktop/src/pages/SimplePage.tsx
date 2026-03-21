@@ -19,10 +19,10 @@ export function SimplePage() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 max-w-3xl">
       <div>
-        <h2 className="text-lg font-semibold">Download</h2>
-        <p className="text-sm text-yoinkit-text-secondary mt-1">Paste a URL and yoink it to your Mac.</p>
+        <h2 className="text-[20px] font-bold tracking-tight" style={{ color: 'var(--text)' }}>Downloads</h2>
+        <p className="text-[13px] mt-1" style={{ color: 'var(--text-secondary)' }}>Paste a URL and yoink it to your Mac.</p>
       </div>
 
       <UrlInput onSubmit={handleSubmit} loading={loading} />

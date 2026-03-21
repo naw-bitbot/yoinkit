@@ -1,5 +1,5 @@
 import React from "react";
-import { CheckCircle2, XCircle, Pause, Loader2, Clock, Ban, type LucideProps } from "lucide-react";
+import { CheckCircle2, XCircle, Pause, Loader2, Clock, Ban } from "lucide-react";
 
 type DownloadStatus = "queued" | "downloading" | "paused" | "completed" | "failed" | "cancelled";
 
@@ -8,13 +8,13 @@ interface StatusBadgeProps {
   className?: string;
 }
 
-const STATUS_CONFIG: Record<DownloadStatus, { label: string; color: string; icon: React.ComponentType<LucideProps> }> = {
-  queued: { label: "Queued", color: "text-yoinkit-text-muted", icon: Clock },
-  downloading: { label: "Downloading", color: "text-yoinkit-accent", icon: Loader2 },
-  paused: { label: "Paused", color: "text-yoinkit-warning", icon: Pause },
-  completed: { label: "Completed", color: "text-yoinkit-success", icon: CheckCircle2 },
-  failed: { label: "Failed", color: "text-yoinkit-danger", icon: XCircle },
-  cancelled: { label: "Cancelled", color: "text-yoinkit-text-muted", icon: Ban },
+const STATUS_CONFIG: Record<DownloadStatus, { label: string; colorVar: string; icon: React.ComponentType<any> }> = {
+  queued: { label: "Queued", colorVar: '--text-tertiary', icon: Clock },
+  downloading: { label: "Downloading", colorVar: '--accent', icon: Loader2 },
+  paused: { label: "Paused", colorVar: '--warning', icon: Pause },
+  completed: { label: "Completed", colorVar: '--success', icon: CheckCircle2 },
+  failed: { label: "Failed", colorVar: '--danger', icon: XCircle },
+  cancelled: { label: "Cancelled", colorVar: '--text-tertiary', icon: Ban },
 };
 
 export function StatusBadge({ status, className = "" }: StatusBadgeProps) {
@@ -22,8 +22,8 @@ export function StatusBadge({ status, className = "" }: StatusBadgeProps) {
   const Icon = config.icon;
 
   return (
-    <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${config.color} ${className}`}>
-      <Icon size={14} className={status === "downloading" ? "animate-spin" : ""} />
+    <span className={`inline-flex items-center gap-1 text-[11px] font-medium ${className}`} style={{ color: `var(${config.colorVar})` }}>
+      <Icon size={13} strokeWidth={1.5} className={status === "downloading" ? "animate-spin" : ""} />
       {config.label}
     </span>
   );

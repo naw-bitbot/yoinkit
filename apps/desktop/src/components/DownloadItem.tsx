@@ -24,13 +24,13 @@ export function DownloadItem({ download, onPause, onResume, onCancel, onDelete }
   const isFinished = download.status === "completed" || download.status === "failed" || download.status === "cancelled";
 
   return (
-    <div className="group bg-yoinkit-surface rounded-xl p-4 border border-yoinkit-border hover:border-yoinkit-border/80 transition-colors">
+    <div className="glass rounded-[10px] p-4 transition-all duration-200 hover:shadow-apple-md">
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
-          <p className="text-sm text-yoinkit-text truncate" title={download.url}>
+          <p className="text-[13px] font-medium truncate" style={{ color: 'var(--text)' }} title={download.url}>
             {urlDisplay}
           </p>
-          <p className="text-xs text-yoinkit-text-muted mt-1 truncate">
+          <p className="text-[11px] mt-0.5 truncate" style={{ color: 'var(--text-tertiary)' }}>
             {download.save_path}
           </p>
         </div>
@@ -48,32 +48,32 @@ export function DownloadItem({ download, onPause, onResume, onCancel, onDelete }
       )}
 
       {download.error && (
-        <p className="mt-2 text-xs text-yoinkit-danger/80">{download.error}</p>
+        <p className="mt-2 text-[11px]" style={{ color: 'var(--danger)' }}>{download.error}</p>
       )}
 
-      <div className="flex gap-1.5 mt-3">
+      <div className="flex gap-1 mt-3">
         {download.status === "downloading" && (
-          <Button variant="ghost" size="sm" onClick={() => onPause(download.id)}>
-            <Pause size={13} />
-            <span>Pause</span>
+          <Button variant="tinted" size="sm" onClick={() => onPause(download.id)}>
+            <Pause size={12} strokeWidth={1.5} />
+            Pause
           </Button>
         )}
         {download.status === "paused" && (
-          <Button variant="ghost" size="sm" onClick={() => onResume(download.id)}>
-            <Play size={13} />
-            <span>Resume</span>
+          <Button variant="tinted" size="sm" onClick={() => onResume(download.id)}>
+            <Play size={12} strokeWidth={1.5} />
+            Resume
           </Button>
         )}
         {isActive && (
-          <Button variant="danger" size="sm" onClick={() => onCancel(download.id)}>
-            <X size={13} />
-            <span>Cancel</span>
+          <Button variant="ghost" size="sm" onClick={() => onCancel(download.id)} style={{ color: 'var(--danger)' }}>
+            <X size={12} strokeWidth={1.5} />
+            Cancel
           </Button>
         )}
         {isFinished && (
           <Button variant="ghost" size="sm" onClick={() => onDelete(download.id)}>
-            <Trash2 size={13} />
-            <span>Remove</span>
+            <Trash2 size={12} strokeWidth={1.5} />
+            Remove
           </Button>
         )}
       </div>

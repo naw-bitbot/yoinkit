@@ -38,38 +38,28 @@ export function VideoPage() {
   const qualities = ["4k", "1080p", "720p", "480p", "360p"];
   const subFormats = ["srt", "vtt", "ass", "txt"];
   const subLangs = [
-    { label: "English", value: "en" },
-    { label: "Spanish", value: "es" },
-    { label: "French", value: "fr" },
-    { label: "German", value: "de" },
-    { label: "Japanese", value: "ja" },
-    { label: "Korean", value: "ko" },
-    { label: "Chinese", value: "zh" },
-    { label: "Portuguese", value: "pt" },
-    { label: "Arabic", value: "ar" },
-    { label: "Hindi", value: "hi" },
+    { label: "English", value: "en" }, { label: "Spanish", value: "es" },
+    { label: "French", value: "fr" }, { label: "German", value: "de" },
+    { label: "Japanese", value: "ja" }, { label: "Korean", value: "ko" },
+    { label: "Chinese", value: "zh" }, { label: "Portuguese", value: "pt" },
+    { label: "Arabic", value: "ar" }, { label: "Hindi", value: "hi" },
     { label: "All", value: "all" },
   ];
 
   const handleFetchInfo = async () => {
     if (!url.trim()) return;
-    setFetching(true);
-    setError(null);
-    setVideoInfo(null);
+    setFetching(true); setError(null); setVideoInfo(null);
     try {
       const { invoke } = await import("@tauri-apps/api/core");
       const info = await invoke<VideoInfo>("get_video_info", { url: url.trim() });
       setVideoInfo(info);
     } catch (err: any) {
       setError(typeof err === "string" ? err : err.message || "Failed to fetch video info");
-    } finally {
-      setFetching(false);
-    }
+    } finally { setFetching(false); }
   };
 
   const handleDownload = async () => {
-    setLoading(true);
-    setError(null);
+    setLoading(true); setError(null);
     try {
       if (subsOnly) {
         const { invoke } = await import("@tauri-apps/api/core");
@@ -79,15 +69,12 @@ export function VideoPage() {
       }
     } catch (err: any) {
       setError(typeof err === "string" ? err : err.message || "Download failed");
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   const handleQuickDownload = async () => {
     if (!url.trim()) return;
-    setLoading(true);
-    setError(null);
+    setLoading(true); setError(null);
     try {
       if (subsOnly) {
         const { invoke } = await import("@tauri-apps/api/core");
@@ -95,45 +82,28 @@ export function VideoPage() {
       } else {
         await startVideoDownload(url.trim(), undefined, quality, false, writeSubs, subLang, subFormat);
       }
-      setUrl("");
-      setVideoInfo(null);
+      setUrl(""); setVideoInfo(null);
     } catch (err: any) {
       setError(typeof err === "string" ? err : err.message || "Download failed");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const formatFileSize = (bytes: number | null) => {
-    if (!bytes) return "Unknown size";
-    if (bytes > 1073741824) return `${(bytes / 1073741824).toFixed(1)} GB`;
-    if (bytes > 1048576) return `${(bytes / 1048576).toFixed(1)} MB`;
-    return `${(bytes / 1024).toFixed(1)} KB`;
+    } finally { setLoading(false); }
   };
 
   const videoDownloads = downloads.filter(d => d.flags === "video" || d.flags === "audio_only");
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 max-w-3xl">
       <div>
-        <h2 className="text-lg font-semibold">Video</h2>
-        <p className="text-sm text-yoinkit-text-secondary mt-1">
+        <h2 className="text-[20px] font-bold tracking-tight" style={{ color: 'var(--text)' }}>Video</h2>
+        <p className="text-[13px] mt-1" style={{ color: 'var(--text-secondary)' }}>
           Download videos from YouTube, Vimeo, TikTok, and 1000+ sites.
         </p>
       </div>
 
-      {/* URL Input */}
       <div className="space-y-4">
         <div className="flex gap-2">
-          <UrlField
-            value={url}
-            onChange={setUrl}
-            onSubmit={handleFetchInfo}
-            placeholder="Paste a video URL..."
-            className="flex-1"
-          />
+          <UrlField value={url} onChange={setUrl} onSubmit={handleFetchInfo} placeholder="Paste a video URL..." className="flex-1" />
           <Button onClick={handleFetchInfo} loading={fetching} variant="secondary">
-            <Info size={14} />
+            <Info size={15} strokeWidth={1.5} />
             Info
           </Button>
           <Button onClick={handleQuickDownload} loading={loading}>
@@ -141,78 +111,46 @@ export function VideoPage() {
           </Button>
         </div>
 
-        {/* Quality selector */}
+        {/* Quality — Apple segmented control */}
         <div className="flex items-center gap-3">
-          <span className="text-xs font-medium text-yoinkit-text-muted uppercase tracking-wider">Quality</span>
-          <div className="flex gap-1 bg-yoinkit-bg rounded-lg p-0.5">
+          <span className="text-[11px] font-medium uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Quality</span>
+          <div className="apple-pill flex">
             {qualities.map(q => (
-              <button
-                key={q}
-                onClick={() => setQuality(q)}
-                className={`px-3 py-1 text-xs rounded-md transition-colors ${
-                  quality === q
-                    ? "bg-yoinkit-accent text-white"
-                    : "text-yoinkit-text-secondary hover:text-yoinkit-text"
-                }`}
-              >
+              <button key={q} onClick={() => setQuality(q)} className={`apple-pill-item ${quality === q ? 'active' : ''}`}>
                 {q}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Subtitles / Transcript */}
-        <div className="rounded-xl border border-yoinkit-border p-4 space-y-3">
+        {/* Subtitles panel */}
+        <div className="glass rounded-[10px] p-4 space-y-3">
           <div className="flex items-center gap-4">
             <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={writeSubs}
-                onChange={e => { setWriteSubs(e.target.checked); if (e.target.checked) setSubsOnly(false); }}
-                className="rounded"
-              />
-              <Subtitles size={14} className="text-yoinkit-text-secondary" />
-              <span className="text-sm text-yoinkit-text">Include subtitles</span>
+              <input type="checkbox" checked={writeSubs} onChange={e => { setWriteSubs(e.target.checked); if (e.target.checked) setSubsOnly(false); }} className="rounded" />
+              <Subtitles size={15} strokeWidth={1.5} style={{ color: 'var(--text-secondary)' }} />
+              <span className="text-[13px]" style={{ color: 'var(--text)' }}>Include subtitles</span>
             </label>
-            <div className="w-px h-4 bg-yoinkit-border" />
+            <div className="w-px h-4" style={{ background: 'var(--separator)' }} />
             <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={subsOnly}
-                onChange={e => { setSubsOnly(e.target.checked); if (e.target.checked) setWriteSubs(false); }}
-                className="rounded"
-              />
-              <FileText size={14} className="text-yoinkit-text-secondary" />
-              <span className="text-sm text-yoinkit-text">Transcript only</span>
+              <input type="checkbox" checked={subsOnly} onChange={e => { setSubsOnly(e.target.checked); if (e.target.checked) setWriteSubs(false); }} className="rounded" />
+              <FileText size={15} strokeWidth={1.5} style={{ color: 'var(--text-secondary)' }} />
+              <span className="text-[13px]" style={{ color: 'var(--text)' }}>Transcript only</span>
             </label>
           </div>
           {(writeSubs || subsOnly) && (
             <div className="flex items-center gap-5 pl-6">
               <div className="flex items-center gap-2">
-                <span className="text-xs text-yoinkit-text-muted">Language</span>
-                <select
-                  value={subLang}
-                  onChange={e => setSubLang(e.target.value)}
-                  className="bg-yoinkit-bg text-yoinkit-text text-xs rounded-md px-2.5 py-1.5 border border-yoinkit-border focus:outline-none focus:ring-1 focus:ring-yoinkit-accent/40"
-                >
-                  {subLangs.map(l => (
-                    <option key={l.value} value={l.value}>{l.label}</option>
-                  ))}
+                <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>Language</span>
+                <select value={subLang} onChange={e => setSubLang(e.target.value)} className="apple-input px-2.5 py-1.5 text-[11px]">
+                  {subLangs.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
                 </select>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-yoinkit-text-muted">Format</span>
-                <div className="flex gap-0.5 bg-yoinkit-bg rounded-md p-0.5">
+                <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>Format</span>
+                <div className="apple-pill flex">
                   {subFormats.map(f => (
-                    <button
-                      key={f}
-                      onClick={() => setSubFormat(f)}
-                      className={`px-2.5 py-1 text-xs rounded transition-colors ${
-                        subFormat === f
-                          ? "bg-yoinkit-accent text-white"
-                          : "text-yoinkit-text-muted hover:text-yoinkit-text"
-                      }`}
-                    >
+                    <button key={f} onClick={() => setSubFormat(f)} className={`apple-pill-item text-[11px] !px-2 !py-0.5 ${subFormat === f ? 'active' : ''}`}>
                       .{f}
                     </button>
                   ))}
@@ -223,52 +161,32 @@ export function VideoPage() {
         </div>
       </div>
 
-      {/* Error */}
       {error && (
-        <div className="bg-yoinkit-danger/5 border border-yoinkit-danger/20 text-yoinkit-danger px-4 py-3 rounded-xl text-sm">
+        <div className="rounded-[8px] px-4 py-3 text-[13px]" style={{ background: 'color-mix(in srgb, var(--danger) 10%, transparent)', color: 'var(--danger)', border: '0.5px solid color-mix(in srgb, var(--danger) 20%, transparent)' }}>
           {error}
         </div>
       )}
 
-      {/* Video Info Card */}
       {videoInfo && (
-        <div className="bg-yoinkit-surface rounded-xl p-5 border border-yoinkit-border space-y-4">
+        <div className="glass rounded-[10px] p-5 space-y-4">
           <div className="flex gap-4">
-            {videoInfo.thumbnail && (
-              <img
-                src={videoInfo.thumbnail}
-                alt={videoInfo.title}
-                className="w-44 h-24 object-cover rounded-lg"
-              />
-            )}
+            {videoInfo.thumbnail && <img src={videoInfo.thumbnail} alt={videoInfo.title} className="w-44 h-24 object-cover rounded-[10px]" />}
             <div className="flex-1 min-w-0">
-              <h3 className="text-sm font-medium truncate">{videoInfo.title}</h3>
-              {videoInfo.duration && (
-                <p className="text-xs text-yoinkit-text-muted mt-1.5">Duration: {videoInfo.duration}</p>
-              )}
-              <p className="text-xs text-yoinkit-text-muted mt-1">
-                {videoInfo.formats.length} formats available
-              </p>
+              <h3 className="text-[13px] font-medium truncate" style={{ color: 'var(--text)' }}>{videoInfo.title}</h3>
+              {videoInfo.duration && <p className="text-[11px] mt-1.5" style={{ color: 'var(--text-tertiary)' }}>Duration: {videoInfo.duration}</p>}
+              <p className="text-[11px] mt-1" style={{ color: 'var(--text-tertiary)' }}>{videoInfo.formats.length} formats available</p>
             </div>
           </div>
-
-          <Button onClick={handleDownload} loading={loading} className="w-full">
+          <Button onClick={handleDownload} loading={loading} className="w-full" size="lg">
             Download at {quality}
           </Button>
         </div>
       )}
 
-      {/* Download List */}
       {videoDownloads.length > 0 && (
         <div>
-          <h3 className="text-xs font-medium text-yoinkit-text-muted uppercase tracking-wider mb-3">Downloads</h3>
-          <DownloadList
-            downloads={videoDownloads}
-            onPause={pauseDownload}
-            onResume={resumeDownload}
-            onCancel={cancelDownload}
-            onDelete={deleteDownload}
-          />
+          <h3 className="text-[11px] font-medium uppercase tracking-wide mb-3" style={{ color: 'var(--text-tertiary)' }}>Downloads</h3>
+          <DownloadList downloads={videoDownloads} onPause={pauseDownload} onResume={resumeDownload} onCancel={cancelDownload} onDelete={deleteDownload} />
         </div>
       )}
     </div>

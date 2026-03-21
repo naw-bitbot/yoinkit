@@ -19,6 +19,7 @@ export function UrlField({
   disabled = false,
 }: UrlFieldProps) {
   const [isDragOver, setIsDragOver] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === "Enter" && value.trim() && onSubmit) {
@@ -60,8 +61,8 @@ export function UrlField({
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
     >
-      <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-yoinkit-text-muted pointer-events-none">
-        <Link size={15} />
+      <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--text-tertiary)' }}>
+        <Link size={14} strokeWidth={1.5} />
       </div>
       <input
         type="url"
@@ -69,17 +70,21 @@ export function UrlField({
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={handleKeyDown}
         onPaste={handlePaste}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => setIsFocused(false)}
         placeholder={placeholder}
         disabled={disabled}
-        className={`w-full pl-10 pr-4 h-11 bg-yoinkit-bg border rounded-lg text-sm text-yoinkit-text placeholder:text-yoinkit-text-muted/60 focus:outline-none focus:ring-2 focus:ring-yoinkit-accent/40 focus:border-yoinkit-accent/40 transition-all ${
-          isDragOver
-            ? "border-yoinkit-accent ring-2 ring-yoinkit-accent/20"
-            : "border-yoinkit-border"
-        } ${disabled ? "opacity-50 pointer-events-none" : ""}`}
+        className={`w-full pl-9 pr-3 h-[36px] rounded-[8px] text-[13px] transition-all duration-200 ${disabled ? "opacity-40 pointer-events-none" : ""}`}
+        style={{
+          background: 'var(--fill)',
+          color: 'var(--text)',
+          border: isDragOver || isFocused ? '0.5px solid var(--accent)' : '0.5px solid var(--border-strong)',
+          boxShadow: isFocused ? '0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent)' : 'none',
+        }}
       />
       {isDragOver && (
-        <div className="absolute inset-0 flex items-center justify-center bg-yoinkit-accent/5 rounded-lg border-2 border-dashed border-yoinkit-accent pointer-events-none">
-          <span className="text-yoinkit-accent text-sm font-medium">Drop URL here</span>
+        <div className="absolute inset-0 flex items-center justify-center rounded-[8px] pointer-events-none" style={{ background: 'color-mix(in srgb, var(--accent) 8%, transparent)', border: '2px dashed var(--accent)' }}>
+          <span className="text-[13px] font-medium" style={{ color: 'var(--accent)' }}>Drop URL here</span>
         </div>
       )}
     </div>
