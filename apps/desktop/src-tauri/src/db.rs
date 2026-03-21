@@ -45,6 +45,7 @@ impl Database {
         let db = Self { conn: Mutex::new(conn) };
         db.init_tables()?;
         db.init_default_settings()?;
+        db.cleanup_stale_downloads()?;
         Ok(db)
     }
 
@@ -104,6 +105,17 @@ impl Database {
                 params![key, value],
             )?;
         }
+        Ok(())
+    }
+
+    /// On startup, mark any "downloading" or "queued" entries as "failed"
+    /// since those processes are dead after an app restart.
+    fn cleanup_stale_downloads(&self) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE downloads SET status = 'failed', error = 'App restarted — download interrupted' WHERE status IN ('downloading', 'queued')",
+            [],
+        )?;
         Ok(())
     }
 
