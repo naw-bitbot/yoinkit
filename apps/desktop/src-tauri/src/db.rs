@@ -223,6 +223,15 @@ impl Database {
             ("one_click_mode", "current_page".to_string()),
             ("max_concurrent", "3".to_string()),
             ("pro_unlocked", "false".to_string()),
+            ("obsidian_vault_path", "".to_string()),
+            ("obsidian_attachments_folder", "assets/yoinkit".to_string()),
+            ("obsidian_frontmatter_template", "".to_string()),
+            ("auto_tag", "false".to_string()),
+            ("auto_summarize", "false".to_string()),
+            ("ai_provider", "none".to_string()),
+            ("ai_api_key_configured", "false".to_string()),
+            ("ai_model", "".to_string()),
+            ("clip_on_download", "false".to_string()),
         ];
         for (key, value) in defaults {
             conn.execute(

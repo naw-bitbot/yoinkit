@@ -46,6 +46,14 @@ export interface AppSettings {
   one_click_mode: string;
   max_concurrent: number;
   pro_unlocked: boolean;
+  obsidian_vault_path: string;
+  obsidian_attachments_folder: string;
+  auto_tag: boolean;
+  auto_summarize: boolean;
+  ai_provider: string;
+  ai_api_key_configured: boolean;
+  ai_model: string;
+  clip_on_download: boolean;
 }
 
 export interface Preset {
