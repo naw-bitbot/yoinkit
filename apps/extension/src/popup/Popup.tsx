@@ -8,6 +8,7 @@ function Popup() {
   const [url, setUrl] = useState("");
   const [connected, setConnected] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(false);
+  const [clipping, setClipping] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
 
   useEffect(() => {
@@ -23,6 +24,20 @@ function Popup() {
       }
     });
   }, []);
+
+  const handleClip = async () => {
+    if (!url.trim()) return;
+    setClipping(true);
+    setMessage(null);
+    try {
+      const result = await api.clipPage(url.trim());
+      setMessage({ text: `Clipped: ${result.title || 'Page'}`, type: "success" });
+    } catch (err) {
+      setMessage({ text: "Failed to clip page", type: "error" });
+    } finally {
+      setClipping(false);
+    }
+  };
 
   const handleDownload = async (downloadUrl: string) => {
     if (!downloadUrl.trim()) return;
@@ -72,14 +87,25 @@ function Popup() {
           placeholder="Paste URL to download..."
           disabled={!connected || loading}
         />
-        <Button
-          onClick={() => handleDownload(url)}
-          loading={loading}
-          disabled={!connected || !url.trim()}
-          className="w-full"
-        >
-          Yoink!
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={() => handleDownload(url)}
+            loading={loading}
+            disabled={!connected || !url.trim()}
+            className="flex-1"
+          >
+            Yoink!
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={handleClip}
+            loading={clipping}
+            disabled={!connected || !url.trim()}
+            className="flex-1"
+          >
+            Clip
+          </Button>
+        </div>
       </div>
 
       {/* Status Message */}

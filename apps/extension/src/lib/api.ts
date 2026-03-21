@@ -59,4 +59,10 @@ export const api = {
       method: "PUT",
       body: JSON.stringify(settings),
     }),
+
+  clipPage: (url: string, html?: string) =>
+    apiRequest<{ id: string; title: string | null; url: string }>("/clip", {
+      method: "POST",
+      body: JSON.stringify({ url, html }),
+    }),
 };

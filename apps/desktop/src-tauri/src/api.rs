@@ -52,6 +52,7 @@ pub async fn start_api_server(app_state: Arc<AppState>, auth: Arc<AuthManager>) 
         .route("/downloads/:id/resume", post(resume_download))
         .route("/settings", get(get_settings))
         .route("/settings", put(update_settings))
+        .route("/clip", post(clip_page))
         .layer(cors)
         .with_state(state);
 
@@ -175,4 +176,59 @@ async fn update_settings(
     crate::settings::update_settings(&state.app_state.db, &new_settings)
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     Ok(StatusCode::OK)
+}
+
+#[derive(Deserialize)]
+struct ClipRequest {
+    url: String,
+    html: Option<String>,
+}
+
+async fn clip_page(
+    headers: HeaderMap,
+    AxumState(state): AxumState<ApiState>,
+    Json(req): Json<ClipRequest>,
+) -> Result<Json<crate::db::Clip>, StatusCode> {
+    validate_token(&headers, &state.auth)?;
+
+    // Get the HTML — either provided or fetched
+    let raw_html = match req.html {
+        Some(html) => html,
+        None => crate::clipper::fetch_page(&req.url).await
+            .map_err(|_| StatusCode::BAD_GATEWAY)?,
+    };
+
+    // Extract readable content
+    let content = crate::clipper::extract_readable(&raw_html, &req.url)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    // Convert to Markdown
+    let md_output = crate::markdown::html_to_markdown(
+        &content, &req.url,
+        &crate::markdown::MarkdownOptions {
+            include_frontmatter: true,
+            include_images: true,
+            image_download_path: None,
+        },
+    );
+
+    // Save to DB
+    let clip = crate::db::Clip {
+        id: uuid::Uuid::new_v4().to_string(),
+        url: req.url,
+        title: Some(content.title),
+        markdown: Some(format!("{}{}", md_output.frontmatter, md_output.body)),
+        html: Some(raw_html),
+        summary: None,
+        tags: "[]".to_string(),
+        source_type: "clip".to_string(),
+        vault_path: None,
+        created_at: chrono::Utc::now().to_rfc3339(),
+        updated_at: None,
+    };
+
+    state.app_state.db.insert_clip(&clip)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(Json(clip))
 }
