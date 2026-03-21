@@ -1,4 +1,5 @@
 import React from "react";
+import { CheckCircle2, XCircle, Pause, Loader2, Clock, Ban, type LucideProps } from "lucide-react";
 
 type DownloadStatus = "queued" | "downloading" | "paused" | "completed" | "failed" | "cancelled";
 
@@ -7,23 +8,22 @@ interface StatusBadgeProps {
   className?: string;
 }
 
-const STATUS_CONFIG: Record<DownloadStatus, { label: string; color: string }> = {
-  queued: { label: "Queued", color: "bg-yoinkit-muted/20 text-yoinkit-muted" },
-  downloading: { label: "Downloading", color: "bg-yoinkit-primary/20 text-yoinkit-primary" },
-  paused: { label: "Paused", color: "bg-yoinkit-warning/20 text-yoinkit-warning" },
-  completed: { label: "Completed", color: "bg-yoinkit-success/20 text-yoinkit-success" },
-  failed: { label: "Failed", color: "bg-yoinkit-danger/20 text-yoinkit-danger" },
-  cancelled: { label: "Cancelled", color: "bg-yoinkit-muted/20 text-yoinkit-muted" },
+const STATUS_CONFIG: Record<DownloadStatus, { label: string; color: string; icon: React.ComponentType<LucideProps> }> = {
+  queued: { label: "Queued", color: "text-yoinkit-text-muted", icon: Clock },
+  downloading: { label: "Downloading", color: "text-yoinkit-accent", icon: Loader2 },
+  paused: { label: "Paused", color: "text-yoinkit-warning", icon: Pause },
+  completed: { label: "Completed", color: "text-yoinkit-success", icon: CheckCircle2 },
+  failed: { label: "Failed", color: "text-yoinkit-danger", icon: XCircle },
+  cancelled: { label: "Cancelled", color: "text-yoinkit-text-muted", icon: Ban },
 };
 
 export function StatusBadge({ status, className = "" }: StatusBadgeProps) {
   const config = STATUS_CONFIG[status] || STATUS_CONFIG.queued;
+  const Icon = config.icon;
 
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${config.color} ${className}`}>
-      {status === "downloading" && (
-        <span className="w-1.5 h-1.5 bg-current rounded-full mr-1.5 animate-pulse" />
-      )}
+    <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${config.color} ${className}`}>
+      <Icon size={14} className={status === "downloading" ? "animate-spin" : ""} />
       {config.label}
     </span>
   );

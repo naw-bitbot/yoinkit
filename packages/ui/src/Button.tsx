@@ -1,4 +1,5 @@
 import React from "react";
+import { Loader2 } from "lucide-react";
 
 type ButtonVariant = "primary" | "secondary" | "danger" | "ghost";
 type ButtonSize = "sm" | "md" | "lg";
@@ -11,16 +12,16 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const VARIANT_STYLES: Record<ButtonVariant, string> = {
-  primary: "bg-yoinkit-primary hover:bg-yoinkit-primary/80 text-white",
-  secondary: "bg-yoinkit-surface hover:bg-yoinkit-surface/80 text-yoinkit-text border border-yoinkit-muted/30",
-  danger: "bg-yoinkit-danger hover:bg-yoinkit-danger/80 text-white",
-  ghost: "bg-transparent hover:bg-yoinkit-surface text-yoinkit-muted hover:text-yoinkit-text",
+  primary: "bg-yoinkit-accent hover:bg-yoinkit-accent-hover text-white",
+  secondary: "bg-yoinkit-surface-hover hover:bg-zinc-700 text-yoinkit-text border border-yoinkit-border",
+  danger: "bg-yoinkit-danger/10 hover:bg-yoinkit-danger/20 text-yoinkit-danger border border-yoinkit-danger/20",
+  ghost: "bg-transparent hover:bg-yoinkit-surface-hover text-yoinkit-text-secondary hover:text-yoinkit-text",
 };
 
 const SIZE_STYLES: Record<ButtonSize, string> = {
-  sm: "px-3 py-1.5 text-xs",
-  md: "px-4 py-2 text-sm",
-  lg: "px-6 py-3 text-base",
+  sm: "h-7 px-2.5 text-xs gap-1.5",
+  md: "h-9 px-4 text-sm gap-2",
+  lg: "h-11 px-6 text-sm gap-2",
 };
 
 export function Button({
@@ -34,18 +35,13 @@ export function Button({
 }: ButtonProps) {
   return (
     <button
-      className={`inline-flex items-center justify-center rounded-lg font-medium transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-yoinkit-primary/50 ${VARIANT_STYLES[variant]} ${SIZE_STYLES[size]} ${
-        disabled || loading ? "opacity-50 cursor-not-allowed" : ""
+      className={`inline-flex items-center justify-center rounded-lg font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yoinkit-accent/50 focus-visible:ring-offset-2 focus-visible:ring-offset-yoinkit-bg ${VARIANT_STYLES[variant]} ${SIZE_STYLES[size]} ${
+        disabled || loading ? "opacity-50 pointer-events-none" : ""
       } ${className}`}
       disabled={disabled || loading}
       {...props}
     >
-      {loading && (
-        <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-        </svg>
-      )}
+      {loading && <Loader2 size={14} className="animate-spin" />}
       {children}
     </button>
   );

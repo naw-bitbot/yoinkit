@@ -8,6 +8,7 @@ import { CommandPreview } from "../components/CommandPreview";
 import { PresetManager } from "../components/PresetManager";
 import { BatchInput } from "../components/BatchInput";
 import { DownloadList } from "../components/DownloadList";
+import { Lock, Crown } from "lucide-react";
 
 type ProTab = "single" | "batch";
 
@@ -21,13 +22,20 @@ export function ProPage() {
 
   if (!settings.pro_unlocked) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 space-y-4">
-        <div className="text-6xl">🔒</div>
-        <h2 className="text-xl font-semibold text-yoinkit-text">Pro Mode</h2>
-        <p className="text-yoinkit-muted text-center max-w-md">
-          Unlock the full power of Wget with the visual command builder, presets, batch downloads, and more.
-        </p>
-        <Button size="lg">Upgrade to Pro</Button>
+      <div className="flex flex-col items-center justify-center py-24 space-y-5">
+        <div className="w-16 h-16 rounded-2xl bg-yoinkit-surface border border-yoinkit-border flex items-center justify-center">
+          <Lock size={24} className="text-yoinkit-text-muted" />
+        </div>
+        <div className="text-center">
+          <h2 className="text-lg font-semibold">Pro Mode</h2>
+          <p className="text-sm text-yoinkit-text-secondary mt-2 max-w-sm">
+            Unlock the full power of Wget with the visual command builder, presets, batch downloads, and more.
+          </p>
+        </div>
+        <Button size="lg">
+          <Crown size={16} />
+          Upgrade to Pro
+        </Button>
       </div>
     );
   }
@@ -59,25 +67,25 @@ export function ProPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-yoinkit-text">Pro Mode</h2>
-          <p className="text-sm text-yoinkit-muted">Full Wget command builder</p>
+          <h2 className="text-lg font-semibold">Pro Mode</h2>
+          <p className="text-sm text-yoinkit-text-secondary mt-1">Full Wget command builder</p>
         </div>
-        <div className="flex bg-yoinkit-surface rounded-lg p-0.5">
+        <div className="flex bg-yoinkit-bg rounded-lg p-0.5">
           <button
             onClick={() => setTab("single")}
-            className={`px-3 py-1 rounded-md text-sm transition-colors ${
-              tab === "single" ? "bg-yoinkit-primary text-white" : "text-yoinkit-muted hover:text-yoinkit-text"
+            className={`px-3.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              tab === "single" ? "bg-yoinkit-accent text-white" : "text-yoinkit-text-muted hover:text-yoinkit-text"
             }`}
           >
             Single
           </button>
           <button
             onClick={() => setTab("batch")}
-            className={`px-3 py-1 rounded-md text-sm transition-colors ${
-              tab === "batch" ? "bg-yoinkit-primary text-white" : "text-yoinkit-muted hover:text-yoinkit-text"
+            className={`px-3.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              tab === "batch" ? "bg-yoinkit-accent text-white" : "text-yoinkit-text-muted hover:text-yoinkit-text"
             }`}
           >
             Batch
@@ -86,7 +94,7 @@ export function ProPage() {
       </div>
 
       {tab === "single" ? (
-        <div className="flex gap-3">
+        <div className="flex gap-2">
           <UrlField value={url} onChange={setUrl} onSubmit={handleSingleDownload} className="flex-1" />
           <Button onClick={handleSingleDownload} loading={loading} disabled={!url.trim()} size="lg">
             Yoink!

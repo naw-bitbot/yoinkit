@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useDownloads } from "../hooks/useDownloads";
 import { DownloadList } from "../components/DownloadList";
 import { Button, UrlField } from "@yoinkit/ui";
+import { Info, Subtitles, FileText } from "lucide-react";
 
 interface VideoInfo {
   title: string;
@@ -110,31 +111,30 @@ export function VideoPage() {
     return `${(bytes / 1024).toFixed(1)} KB`;
   };
 
-  // Filter video downloads
   const videoDownloads = downloads.filter(d => d.flags === "video" || d.flags === "audio_only");
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
-        <h2 className="text-xl font-semibold text-yoinkit-text mb-1">Video Download</h2>
-        <p className="text-sm text-yoinkit-muted">
+        <h2 className="text-lg font-semibold">Video</h2>
+        <p className="text-sm text-yoinkit-text-secondary mt-1">
           Download videos from YouTube, Vimeo, TikTok, and 1000+ sites.
         </p>
       </div>
 
       {/* URL Input */}
-      <div className="space-y-3">
+      <div className="space-y-4">
         <div className="flex gap-2">
-          <div className="flex-1">
-            <UrlField
-              value={url}
-              onChange={setUrl}
-              onSubmit={handleFetchInfo}
-              placeholder="Paste a video URL..."
-            />
-          </div>
+          <UrlField
+            value={url}
+            onChange={setUrl}
+            onSubmit={handleFetchInfo}
+            placeholder="Paste a video URL..."
+            className="flex-1"
+          />
           <Button onClick={handleFetchInfo} loading={fetching} variant="secondary">
-            Fetch Info
+            <Info size={14} />
+            Info
           </Button>
           <Button onClick={handleQuickDownload} loading={loading}>
             Yoink!
@@ -143,16 +143,16 @@ export function VideoPage() {
 
         {/* Quality selector */}
         <div className="flex items-center gap-3">
-          <span className="text-sm text-yoinkit-muted">Quality:</span>
-          <div className="flex gap-1">
+          <span className="text-xs font-medium text-yoinkit-text-muted uppercase tracking-wider">Quality</span>
+          <div className="flex gap-1 bg-yoinkit-bg rounded-lg p-0.5">
             {qualities.map(q => (
               <button
                 key={q}
                 onClick={() => setQuality(q)}
                 className={`px-3 py-1 text-xs rounded-md transition-colors ${
                   quality === q
-                    ? "bg-yoinkit-primary text-white"
-                    : "bg-yoinkit-surface text-yoinkit-muted hover:text-yoinkit-text"
+                    ? "bg-yoinkit-accent text-white"
+                    : "text-yoinkit-text-secondary hover:text-yoinkit-text"
                 }`}
               >
                 {q}
@@ -162,36 +162,38 @@ export function VideoPage() {
         </div>
 
         {/* Subtitles / Transcript */}
-        <div className="bg-yoinkit-surface/50 rounded-lg p-3 space-y-2">
-          <div className="flex items-center gap-3">
+        <div className="rounded-xl border border-yoinkit-border p-4 space-y-3">
+          <div className="flex items-center gap-4">
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
                 checked={writeSubs}
                 onChange={e => { setWriteSubs(e.target.checked); if (e.target.checked) setSubsOnly(false); }}
-                className="rounded border-yoinkit-muted/30 bg-yoinkit-surface"
+                className="rounded"
               />
+              <Subtitles size={14} className="text-yoinkit-text-secondary" />
               <span className="text-sm text-yoinkit-text">Include subtitles</span>
             </label>
-            <span className="text-yoinkit-muted/30">|</span>
+            <div className="w-px h-4 bg-yoinkit-border" />
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
                 checked={subsOnly}
                 onChange={e => { setSubsOnly(e.target.checked); if (e.target.checked) setWriteSubs(false); }}
-                className="rounded border-yoinkit-muted/30 bg-yoinkit-surface"
+                className="rounded"
               />
+              <FileText size={14} className="text-yoinkit-text-secondary" />
               <span className="text-sm text-yoinkit-text">Transcript only</span>
             </label>
           </div>
           {(writeSubs || subsOnly) && (
-            <div className="flex items-center gap-4 ml-6">
+            <div className="flex items-center gap-5 pl-6">
               <div className="flex items-center gap-2">
-                <span className="text-xs text-yoinkit-muted">Language:</span>
+                <span className="text-xs text-yoinkit-text-muted">Language</span>
                 <select
                   value={subLang}
                   onChange={e => setSubLang(e.target.value)}
-                  className="bg-yoinkit-surface text-yoinkit-text text-xs rounded px-2 py-1 border border-yoinkit-muted/20"
+                  className="bg-yoinkit-bg text-yoinkit-text text-xs rounded-md px-2.5 py-1.5 border border-yoinkit-border focus:outline-none focus:ring-1 focus:ring-yoinkit-accent/40"
                 >
                   {subLangs.map(l => (
                     <option key={l.value} value={l.value}>{l.label}</option>
@@ -199,16 +201,16 @@ export function VideoPage() {
                 </select>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-yoinkit-muted">Format:</span>
-                <div className="flex gap-1">
+                <span className="text-xs text-yoinkit-text-muted">Format</span>
+                <div className="flex gap-0.5 bg-yoinkit-bg rounded-md p-0.5">
                   {subFormats.map(f => (
                     <button
                       key={f}
                       onClick={() => setSubFormat(f)}
-                      className={`px-2 py-0.5 text-xs rounded transition-colors ${
+                      className={`px-2.5 py-1 text-xs rounded transition-colors ${
                         subFormat === f
-                          ? "bg-yoinkit-primary text-white"
-                          : "bg-yoinkit-bg text-yoinkit-muted hover:text-yoinkit-text"
+                          ? "bg-yoinkit-accent text-white"
+                          : "text-yoinkit-text-muted hover:text-yoinkit-text"
                       }`}
                     >
                       .{f}
@@ -223,28 +225,28 @@ export function VideoPage() {
 
       {/* Error */}
       {error && (
-        <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-lg text-sm">
+        <div className="bg-yoinkit-danger/5 border border-yoinkit-danger/20 text-yoinkit-danger px-4 py-3 rounded-xl text-sm">
           {error}
         </div>
       )}
 
       {/* Video Info Card */}
       {videoInfo && (
-        <div className="bg-yoinkit-surface rounded-lg p-4 space-y-3">
+        <div className="bg-yoinkit-surface rounded-xl p-5 border border-yoinkit-border space-y-4">
           <div className="flex gap-4">
             {videoInfo.thumbnail && (
               <img
                 src={videoInfo.thumbnail}
                 alt={videoInfo.title}
-                className="w-40 h-24 object-cover rounded-md"
+                className="w-44 h-24 object-cover rounded-lg"
               />
             )}
             <div className="flex-1 min-w-0">
-              <h3 className="font-medium text-yoinkit-text truncate">{videoInfo.title}</h3>
+              <h3 className="text-sm font-medium truncate">{videoInfo.title}</h3>
               {videoInfo.duration && (
-                <p className="text-sm text-yoinkit-muted mt-1">Duration: {videoInfo.duration}</p>
+                <p className="text-xs text-yoinkit-text-muted mt-1.5">Duration: {videoInfo.duration}</p>
               )}
-              <p className="text-xs text-yoinkit-muted mt-1">
+              <p className="text-xs text-yoinkit-text-muted mt-1">
                 {videoInfo.formats.length} formats available
               </p>
             </div>
@@ -259,7 +261,7 @@ export function VideoPage() {
       {/* Download List */}
       {videoDownloads.length > 0 && (
         <div>
-          <h3 className="text-sm font-medium text-yoinkit-muted mb-3">Video Downloads</h3>
+          <h3 className="text-xs font-medium text-yoinkit-text-muted uppercase tracking-wider mb-3">Downloads</h3>
           <DownloadList
             downloads={videoDownloads}
             onPause={pauseDownload}

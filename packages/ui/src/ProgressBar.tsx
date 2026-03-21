@@ -1,7 +1,7 @@
 import React from "react";
 
 interface ProgressBarProps {
-  progress: number; // 0-100
+  progress: number;
   speed?: string;
   eta?: string;
   className?: string;
@@ -11,17 +11,17 @@ export function ProgressBar({ progress, speed, eta, className = "" }: ProgressBa
   const clampedProgress = Math.min(100, Math.max(0, progress));
 
   return (
-    <div className={`w-full ${className}`}>
-      <div className="flex justify-between text-xs text-yoinkit-muted mb-1">
-        <span>{clampedProgress.toFixed(1)}%</span>
+    <div className={`w-full space-y-1.5 ${className}`}>
+      <div className="flex justify-between text-xs text-yoinkit-text-muted">
+        <span className="tabular-nums">{clampedProgress.toFixed(1)}%</span>
         <div className="flex gap-3">
-          {speed && <span>{speed}</span>}
-          {eta && <span>ETA: {eta}</span>}
+          {speed && <span className="tabular-nums">{speed}</span>}
+          {eta && <span className="tabular-nums">{eta}</span>}
         </div>
       </div>
-      <div className="w-full h-2 bg-yoinkit-bg rounded-full overflow-hidden">
+      <div className="w-full h-1.5 bg-yoinkit-border rounded-full overflow-hidden">
         <div
-          className="h-full bg-gradient-to-r from-yoinkit-primary to-yoinkit-secondary rounded-full transition-all duration-300 ease-out"
+          className="h-full bg-yoinkit-accent rounded-full transition-all duration-500 ease-out"
           style={{ width: `${clampedProgress}%` }}
         />
       </div>

@@ -19,10 +19,10 @@ export function SimplePage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
-        <h2 className="text-xl font-semibold text-yoinkit-text mb-1">Download</h2>
-        <p className="text-sm text-yoinkit-muted">Paste a URL and yoink it to your Mac.</p>
+        <h2 className="text-lg font-semibold">Download</h2>
+        <p className="text-sm text-yoinkit-text-secondary mt-1">Paste a URL and yoink it to your Mac.</p>
       </div>
 
       <UrlInput onSubmit={handleSubmit} loading={loading} />

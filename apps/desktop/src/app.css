@@ -1,3 +1,29 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-yoinkit-bg text-yoinkit-text antialiased;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-yoinkit-border rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-yoinkit-text-muted;
+  }
+
+  input[type="checkbox"] {
+    @apply accent-yoinkit-accent;
+  }
+  input[type="radio"] {
+    @apply accent-yoinkit-accent;
+  }
+}
