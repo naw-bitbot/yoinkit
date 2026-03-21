@@ -52,6 +52,47 @@ fn monolith_binary_path() -> PathBuf {
     PathBuf::from("monolith")
 }
 
+/// Check if a URL is still alive (returns HTTP status)
+pub async fn check_link(url: &str) -> Result<LinkStatus, String> {
+    let client = reqwest::Client::builder()
+        .user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)")
+        .timeout(std::time::Duration::from_secs(15))
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    match client.head(url).send().await {
+        Ok(resp) => {
+            let status = resp.status().as_u16();
+            let alive = status < 400;
+            Ok(LinkStatus { url: url.to_string(), status, alive })
+        }
+        Err(_e) => {
+            // Timeout or connection refused = possibly dead
+            Ok(LinkStatus { url: url.to_string(), status: 0, alive: false })
+        }
+    }
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct LinkStatus {
+    pub url: String,
+    pub status: u16,
+    pub alive: bool,
+}
+
+/// Check all archived clips for link rot. Returns dead links.
+pub async fn check_all_links(clips: &[crate::db::Clip]) -> Vec<LinkStatus> {
+    let mut results = Vec::new();
+    for clip in clips.iter().filter(|c| c.source_type == "archive") {
+        if let Ok(status) = check_link(&clip.url).await {
+            if !status.alive {
+                results.push(status);
+            }
+        }
+    }
+    results
+}
+
 fn sanitize_filename(url: &str) -> String {
     // Strip protocol, replace non-alphanumeric with dashes, truncate
     let cleaned = url

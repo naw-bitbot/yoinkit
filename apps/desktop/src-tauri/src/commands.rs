@@ -468,6 +468,17 @@ pub async fn archive_url(url: String, state: State<'_, AppState>) -> Result<Clip
 }
 
 #[tauri::command]
+pub async fn check_link_status(url: String) -> Result<crate::archiver::LinkStatus, String> {
+    crate::archiver::check_link(&url).await
+}
+
+#[tauri::command]
+pub async fn check_all_archived_links(state: State<'_, AppState>) -> Result<Vec<crate::archiver::LinkStatus>, String> {
+    let clips = state.db.list_clips().map_err(|e| format!("DB error: {}", e))?;
+    Ok(crate::archiver::check_all_links(&clips).await)
+}
+
+#[tauri::command]
 pub async fn export_clip_to_vault(
     id: String,
     vault_path: String,

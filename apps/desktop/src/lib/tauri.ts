@@ -116,4 +116,7 @@ export const api = {
     invoke<string>("export_clip_to_vault", { id, vaultPath, attachmentsFolder }),
 
   archiveUrl: (url: string) => invoke<Clip>("archive_url", { url }),
+
+  checkLinkStatus: (url: string) => invoke<{ url: string; status: number; alive: boolean }>("check_link_status", { url }),
+  checkAllArchivedLinks: () => invoke<Array<{ url: string; status: number; alive: boolean }>>("check_all_archived_links"),
 };

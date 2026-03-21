@@ -75,6 +75,8 @@ pub fn run() {
             commands::update_clip_tags,
             commands::export_clip_to_vault,
             commands::archive_url,
+            commands::check_link_status,
+            commands::check_all_archived_links,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
