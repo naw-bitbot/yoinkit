@@ -42,8 +42,26 @@ impl Database {
         let db_path = Self::db_path();
         std::fs::create_dir_all(db_path.parent().unwrap()).ok();
         let conn = Connection::open(&db_path)?;
+
+        conn.execute_batch("
+            CREATE TABLE IF NOT EXISTS schema_version (
+                version INTEGER PRIMARY KEY,
+                applied_at TEXT NOT NULL
+            );
+        ")?;
+
+        let current_version: i64 = conn.query_row(
+            "SELECT COALESCE(MAX(version), 0) FROM schema_version", [], |row| row.get(0)
+        ).unwrap_or(0);
+
+        if current_version < 1 {
+            Self::migrate_v1(&conn)?;
+        }
+        if current_version < 2 {
+            Self::migrate_v2(&conn)?;
+        }
+
         let db = Self { conn: Mutex::new(conn) };
-        db.init_tables()?;
         db.init_default_settings()?;
         db.cleanup_stale_downloads()?;
         Ok(db)
@@ -56,8 +74,7 @@ impl Database {
         path
     }
 
-    fn init_tables(&self) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
+    fn migrate_v1(conn: &Connection) -> Result<()> {
         conn.execute_batch("
             CREATE TABLE IF NOT EXISTS downloads (
                 id TEXT PRIMARY KEY,
@@ -84,6 +101,66 @@ impl Database {
                 value TEXT NOT NULL
             );
         ")?;
+        conn.execute(
+            "INSERT OR IGNORE INTO schema_version (version, applied_at) VALUES (1, datetime('now'))",
+            [],
+        )?;
+        Ok(())
+    }
+
+    fn migrate_v2(conn: &Connection) -> Result<()> {
+        conn.execute_batch("
+            CREATE TABLE IF NOT EXISTS clips (
+                id TEXT PRIMARY KEY,
+                url TEXT NOT NULL,
+                title TEXT,
+                markdown TEXT,
+                html TEXT,
+                summary TEXT,
+                tags TEXT DEFAULT '[]',
+                source_type TEXT DEFAULT 'clip',
+                vault_path TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT
+            );
+            CREATE TABLE IF NOT EXISTS search_index (
+                id TEXT PRIMARY KEY,
+                content_type TEXT,
+                content_id TEXT,
+                indexed_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS chat_messages (
+                id TEXT PRIMARY KEY,
+                role TEXT NOT NULL,
+                content TEXT NOT NULL,
+                sources TEXT DEFAULT '[]',
+                created_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS schedules (
+                id TEXT PRIMARY KEY,
+                url TEXT NOT NULL,
+                job_type TEXT NOT NULL,
+                cron TEXT,
+                flags TEXT DEFAULT '{}',
+                last_run TEXT,
+                next_run TEXT,
+                enabled INTEGER DEFAULT 1,
+                created_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS monitors (
+                id TEXT PRIMARY KEY,
+                url TEXT NOT NULL,
+                last_hash TEXT,
+                last_checked TEXT,
+                change_detected INTEGER DEFAULT 0,
+                notify INTEGER DEFAULT 1,
+                created_at TEXT NOT NULL
+            );
+        ")?;
+        conn.execute(
+            "INSERT OR IGNORE INTO schema_version (version, applied_at) VALUES (2, datetime('now'))",
+            [],
+        )?;
         Ok(())
     }
 
