@@ -55,6 +55,20 @@ export interface Preset {
   created_at: string;
 }
 
+export interface Clip {
+  id: string;
+  url: string;
+  title: string | null;
+  markdown: string | null;
+  html: string | null;
+  summary: string | null;
+  tags: string;
+  source_type: string;
+  vault_path: string | null;
+  created_at: string;
+  updated_at: string | null;
+}
+
 export const api = {
   startDownload: (url: string, flags?: WgetFlags, savePath?: string) =>
     invoke<string>("start_download", { url, flags, savePath }),
@@ -83,4 +97,13 @@ export const api = {
   scrapeImages: (url: string) => invoke<any[]>("scrape_images", { url }),
   downloadImages: (imageUrls: string[], savePath?: string) =>
     invoke<string>("download_images", { imageUrls, savePath }),
+
+  clipUrl: (url: string) => invoke<Clip>("clip_url", { url }),
+  clipHtml: (html: string, url: string) => invoke<Clip>("clip_html", { html, url }),
+  listClips: () => invoke<Clip[]>("list_clips"),
+  getClip: (id: string) => invoke<Clip | null>("get_clip", { id }),
+  deleteClip: (id: string) => invoke<void>("delete_clip", { id }),
+  updateClipTags: (id: string, tags: string[]) => invoke<void>("update_clip_tags", { id, tags }),
+  exportClipToVault: (id: string, vaultPath: string, attachmentsFolder: string) =>
+    invoke<string>("export_clip_to_vault", { id, vaultPath, attachmentsFolder }),
 };

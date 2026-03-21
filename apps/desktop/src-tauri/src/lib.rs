@@ -66,6 +66,13 @@ pub fn run() {
             commands::download_subtitles,
             commands::scrape_images,
             commands::download_images,
+            commands::clip_url,
+            commands::clip_html,
+            commands::list_clips,
+            commands::get_clip,
+            commands::delete_clip,
+            commands::update_clip_tags,
+            commands::export_clip_to_vault,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

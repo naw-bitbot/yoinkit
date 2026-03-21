@@ -1,6 +1,8 @@
-use crate::db::{Database, Preset};
+use crate::clipper;
+use crate::db::{Clip, Database, Preset};
 use crate::download_manager::DownloadManager;
 use crate::image_scraper;
+use crate::markdown::{self, MarkdownOptions};
 use crate::settings::{self, AppSettings};
 use crate::wget::WgetFlags;
 use crate::ytdlp;
@@ -353,4 +355,112 @@ pub async fn download_images(
     });
 
     Ok(id)
+}
+
+// Clipper commands
+
+fn build_clip_from_html(html: &str, url: &str) -> Result<Clip, String> {
+    let content = clipper::extract_readable(html, url)?;
+    let options = MarkdownOptions {
+        include_frontmatter: true,
+        include_images: true,
+        image_download_path: None,
+    };
+    let md_output = markdown::html_to_markdown(&content, url, &options);
+    let markdown_text = format!("{}{}", md_output.frontmatter, md_output.body);
+    let now = chrono::Utc::now().to_rfc3339();
+    let clip = Clip {
+        id: Uuid::new_v4().to_string(),
+        url: url.to_string(),
+        title: Some(content.title),
+        markdown: Some(markdown_text),
+        html: Some(html.to_string()),
+        summary: content.description,
+        tags: "[]".to_string(),
+        source_type: "clip".to_string(),
+        vault_path: None,
+        created_at: now,
+        updated_at: None,
+    };
+    Ok(clip)
+}
+
+#[tauri::command]
+pub async fn clip_url(url: String, state: State<'_, AppState>) -> Result<Clip, String> {
+    let raw_html = clipper::fetch_page(&url).await?;
+    let clip = build_clip_from_html(&raw_html, &url)?;
+    state.db.insert_clip(&clip).map_err(|e| format!("DB error: {}", e))?;
+    Ok(clip)
+}
+
+#[tauri::command]
+pub async fn clip_html(html: String, url: String, state: State<'_, AppState>) -> Result<Clip, String> {
+    let clip = build_clip_from_html(&html, &url)?;
+    state.db.insert_clip(&clip).map_err(|e| format!("DB error: {}", e))?;
+    Ok(clip)
+}
+
+#[tauri::command]
+pub fn list_clips(state: State<'_, AppState>) -> Result<Vec<Clip>, String> {
+    state.db.list_clips().map_err(|e| format!("DB error: {}", e))
+}
+
+#[tauri::command]
+pub fn get_clip(id: String, state: State<'_, AppState>) -> Result<Option<Clip>, String> {
+    state.db.get_clip(&id).map_err(|e| format!("DB error: {}", e))
+}
+
+#[tauri::command]
+pub fn delete_clip(id: String, state: State<'_, AppState>) -> Result<(), String> {
+    state.db.delete_clip(&id).map_err(|e| format!("DB error: {}", e))
+}
+
+#[tauri::command]
+pub fn update_clip_tags(id: String, tags: Vec<String>, state: State<'_, AppState>) -> Result<(), String> {
+    let mut clip = state.db.get_clip(&id)
+        .map_err(|e| format!("DB error: {}", e))?
+        .ok_or_else(|| format!("Clip not found: {}", id))?;
+    let tags_json = serde_json::to_string(&tags).map_err(|e| format!("Serialization error: {}", e))?;
+    clip.tags = tags_json;
+    clip.updated_at = Some(chrono::Utc::now().to_rfc3339());
+    state.db.update_clip(&clip).map_err(|e| format!("DB error: {}", e))
+}
+
+#[tauri::command]
+pub async fn export_clip_to_vault(
+    id: String,
+    vault_path: String,
+    attachments_folder: String,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
+    let mut clip = state.db.get_clip(&id)
+        .map_err(|e| format!("DB error: {}", e))?
+        .ok_or_else(|| format!("Clip not found: {}", id))?;
+
+    let vault_expanded = shellexpand::tilde(&vault_path).to_string();
+    let attachments_path = format!("{}/{}", vault_expanded, attachments_folder);
+    std::fs::create_dir_all(&vault_expanded).map_err(|e| format!("Failed to create vault dir: {}", e))?;
+    std::fs::create_dir_all(&attachments_path).map_err(|e| format!("Failed to create attachments dir: {}", e))?;
+
+    let title = clip.title.clone().unwrap_or_else(|| "untitled".to_string());
+    let sanitized_title: String = title
+        .chars()
+        .map(|c| if c.is_alphanumeric() || c == ' ' || c == '-' || c == '_' { c } else { '_' })
+        .collect::<String>()
+        .trim()
+        .to_string();
+    let sanitized_title = if sanitized_title.is_empty() { "untitled".to_string() } else { sanitized_title };
+
+    let file_name = format!("{}.md", sanitized_title);
+    let file_path = format!("{}/{}", vault_expanded, file_name);
+
+    let markdown_content = clip.markdown.clone().unwrap_or_default();
+    std::fs::write(&file_path, &markdown_content)
+        .map_err(|e| format!("Failed to write file: {}", e))?;
+
+    clip.vault_path = Some(file_path.clone());
+    clip.updated_at = Some(chrono::Utc::now().to_rfc3339());
+    state.db.update_clip(&clip).map_err(|e| format!("DB error: {}", e))?;
+
+    Ok(file_path)
 }
