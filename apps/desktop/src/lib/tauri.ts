@@ -114,4 +114,6 @@ export const api = {
   updateClipTags: (id: string, tags: string[]) => invoke<void>("update_clip_tags", { id, tags }),
   exportClipToVault: (id: string, vaultPath: string, attachmentsFolder: string) =>
     invoke<string>("export_clip_to_vault", { id, vaultPath, attachmentsFolder }),
+
+  archiveUrl: (url: string) => invoke<Clip>("archive_url", { url }),
 };

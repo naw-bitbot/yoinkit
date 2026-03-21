@@ -427,6 +427,47 @@ pub fn update_clip_tags(id: String, tags: Vec<String>, state: State<'_, AppState
 }
 
 #[tauri::command]
+pub async fn archive_url(url: String, state: State<'_, AppState>) -> Result<Clip, String> {
+    // 1. Get save dir from settings
+    let save_dir = state.db.get_setting("default_save_path")
+        .ok().flatten()
+        .unwrap_or_else(|| "~/Downloads/Yoinkit".to_string());
+    let archive_dir = format!("{}/Archives", save_dir);
+
+    // 2. Archive the page
+    let archive_path = crate::archiver::archive_page(&url, &archive_dir).await?;
+
+    // 3. Also extract readable content for the clip metadata
+    let raw_html = crate::clipper::fetch_page(&url).await
+        .unwrap_or_default();
+    let title = if !raw_html.is_empty() {
+        crate::clipper::extract_readable(&raw_html, &url)
+            .map(|c| c.title)
+            .unwrap_or_else(|_| url.clone())
+    } else {
+        url.clone()
+    };
+
+    // 4. Save as clip with source_type = "archive"
+    let clip = Clip {
+        id: Uuid::new_v4().to_string(),
+        url: url.clone(),
+        title: Some(title),
+        markdown: None,
+        html: Some(format!("file://{}", archive_path)),
+        summary: None,
+        tags: "[]".to_string(),
+        source_type: "archive".to_string(),
+        vault_path: Some(archive_path),
+        created_at: chrono::Utc::now().to_rfc3339(),
+        updated_at: None,
+    };
+
+    state.db.insert_clip(&clip).map_err(|e| format!("DB error: {}", e))?;
+    Ok(clip)
+}
+
+#[tauri::command]
 pub async fn export_clip_to_vault(
     id: String,
     vault_path: String,

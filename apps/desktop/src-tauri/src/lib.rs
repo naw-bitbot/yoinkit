@@ -1,4 +1,5 @@
 mod api;
+mod archiver;
 mod auth;
 mod commands;
 mod db;
@@ -73,6 +74,7 @@ pub fn run() {
             commands::delete_clip,
             commands::update_clip_tags,
             commands::export_clip_to_vault,
+            commands::archive_url,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
