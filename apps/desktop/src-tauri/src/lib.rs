@@ -1,3 +1,4 @@
+mod ai;
 mod api;
 mod archiver;
 mod auth;
@@ -94,6 +95,11 @@ pub fn run() {
             commands::check_all_archived_links,
             commands::search_yoinks,
             commands::rebuild_search_index,
+            commands::ai_tag_clip,
+            commands::ai_summarize_clip,
+            commands::chat_ask,
+            commands::chat_history,
+            commands::chat_clear,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

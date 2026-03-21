@@ -87,6 +87,19 @@ export interface SearchResult {
   created_at: string;
 }
 
+export interface ChatResponse {
+  answer: string;
+  source_ids: string[];
+}
+
+export interface ChatMessage {
+  id: string;
+  role: string;
+  content: string;
+  sources: string;
+  created_at: string;
+}
+
 export const api = {
   startDownload: (url: string, flags?: WgetFlags, savePath?: string) =>
     invoke<string>("start_download", { url, flags, savePath }),
@@ -132,4 +145,11 @@ export const api = {
 
   searchYoinks: (query: string, limit?: number) => invoke<SearchResult[]>("search_yoinks", { query, limit }),
   rebuildSearchIndex: () => invoke<void>("rebuild_search_index"),
+
+  aiTagClip: (id: string) => invoke<string[]>("ai_tag_clip", { id }),
+  aiSummarizeClip: (id: string) => invoke<string>("ai_summarize_clip", { id }),
+
+  chatAsk: (question: string) => invoke<ChatResponse>("chat_ask", { question }),
+  chatHistory: (limit?: number) => invoke<ChatMessage[]>("chat_history", { limit }),
+  chatClear: () => invoke<void>("chat_clear"),
 };

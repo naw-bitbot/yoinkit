@@ -1,3 +1,5 @@
+use crate::ai;
+use crate::ai::AiProvider;
 use crate::clipper;
 use crate::db::{Clip, Database, Preset};
 use crate::download_manager::DownloadManager;
@@ -389,8 +391,33 @@ fn build_clip_from_html(html: &str, url: &str) -> Result<Clip, String> {
 #[tauri::command]
 pub async fn clip_url(url: String, state: State<'_, AppState>) -> Result<Clip, String> {
     let raw_html = clipper::fetch_page(&url).await?;
-    let clip = build_clip_from_html(&raw_html, &url)?;
+    let mut clip = build_clip_from_html(&raw_html, &url)?;
     state.db.insert_clip(&clip).map_err(|e| format!("DB error: {}", e))?;
+
+    // Auto-tag and auto-summarize if enabled
+    let app_settings = settings::get_settings(&state.db)?;
+    if app_settings.auto_tag || app_settings.auto_summarize {
+        let provider = ai::AiProvider::from_settings(&app_settings, &state.db);
+        if let AiProvider::None = provider {
+            // No provider configured, skip
+        } else {
+            let content = clip.markdown.as_deref().unwrap_or("").to_string();
+            if app_settings.auto_tag {
+                if let Ok(tags) = ai::auto_tag(&content, &provider).await {
+                    let tags_json = serde_json::to_string(&tags).unwrap_or_else(|_| "[]".to_string());
+                    clip.tags = tags_json;
+                }
+            }
+            if app_settings.auto_summarize {
+                if let Ok(summary) = ai::auto_summarize(&content, &provider).await {
+                    clip.summary = Some(summary);
+                }
+            }
+            clip.updated_at = Some(chrono::Utc::now().to_rfc3339());
+            let _ = state.db.update_clip(&clip);
+        }
+    }
+
     Ok(clip)
 }
 
@@ -530,4 +557,78 @@ pub async fn export_clip_to_vault(
     state.db.update_clip(&clip).map_err(|e| format!("DB error: {}", e))?;
 
     Ok(file_path)
+}
+
+#[tauri::command]
+pub async fn ai_tag_clip(id: String, state: State<'_, AppState>) -> Result<Vec<String>, String> {
+    let clip = state.db.get_clip(&id)
+        .map_err(|e| format!("DB error: {}", e))?
+        .ok_or_else(|| format!("Clip not found: {}", id))?;
+    let app_settings = settings::get_settings(&state.db)?;
+    let provider = ai::AiProvider::from_settings(&app_settings, &state.db);
+    let content = clip.markdown.as_deref().unwrap_or("");
+    let tags = ai::auto_tag(content, &provider).await?;
+    // Update clip in DB
+    let tags_json = serde_json::to_string(&tags).map_err(|e| format!("JSON error: {}", e))?;
+    let mut updated = clip;
+    updated.tags = tags_json;
+    updated.updated_at = Some(chrono::Utc::now().to_rfc3339());
+    state.db.update_clip(&updated).map_err(|e| format!("DB error: {}", e))?;
+    Ok(tags)
+}
+
+#[tauri::command]
+pub async fn ai_summarize_clip(id: String, state: State<'_, AppState>) -> Result<String, String> {
+    let clip = state.db.get_clip(&id)
+        .map_err(|e| format!("DB error: {}", e))?
+        .ok_or_else(|| format!("Clip not found: {}", id))?;
+    let app_settings = settings::get_settings(&state.db)?;
+    let provider = ai::AiProvider::from_settings(&app_settings, &state.db);
+    let content = clip.markdown.as_deref().unwrap_or("");
+    let summary = ai::auto_summarize(content, &provider).await?;
+    // Update clip in DB
+    let mut updated = clip;
+    updated.summary = Some(summary.clone());
+    updated.updated_at = Some(chrono::Utc::now().to_rfc3339());
+    state.db.update_clip(&updated).map_err(|e| format!("DB error: {}", e))?;
+    Ok(summary)
+}
+
+#[tauri::command]
+pub async fn chat_ask(question: String, state: State<'_, AppState>) -> Result<ai::ChatResponse, String> {
+    let app_settings = settings::get_settings(&state.db)?;
+    let provider = ai::AiProvider::from_settings(&app_settings, &state.db);
+    let engine = state.search_engine.as_ref().ok_or("Search not initialized")?;
+    let response = ai::ask_yoinks(&question, engine, &provider, &state.db).await?;
+
+    // Save to chat_messages table
+    let user_msg = crate::db::ChatMessage {
+        id: uuid::Uuid::new_v4().to_string(),
+        role: "user".to_string(),
+        content: question,
+        sources: "[]".to_string(),
+        created_at: chrono::Utc::now().to_rfc3339(),
+    };
+    let _ = state.db.insert_chat_message(&user_msg);
+
+    let assistant_msg = crate::db::ChatMessage {
+        id: uuid::Uuid::new_v4().to_string(),
+        role: "assistant".to_string(),
+        content: response.answer.clone(),
+        sources: serde_json::to_string(&response.source_ids).unwrap_or_else(|_| "[]".to_string()),
+        created_at: chrono::Utc::now().to_rfc3339(),
+    };
+    let _ = state.db.insert_chat_message(&assistant_msg);
+
+    Ok(response)
+}
+
+#[tauri::command]
+pub fn chat_history(limit: Option<usize>, state: State<'_, AppState>) -> Result<Vec<crate::db::ChatMessage>, String> {
+    state.db.list_chat_messages(limit.unwrap_or(50)).map_err(|e| format!("DB error: {}", e))
+}
+
+#[tauri::command]
+pub fn chat_clear(state: State<'_, AppState>) -> Result<(), String> {
+    state.db.clear_chat_messages().map_err(|e| format!("DB error: {}", e))
 }
