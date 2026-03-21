@@ -213,3 +213,21 @@ pub async fn ask_yoinks(
         source_ids,
     })
 }
+
+// Task 5.7: Transcript → Structured Notes
+pub async fn structure_transcript(transcript: &str, provider: &AiProvider) -> Result<String, String> {
+    let truncated = &transcript[..transcript.len().min(8000)];
+    let prompt = format!(
+        "Convert this raw transcript into structured Markdown notes with:\n\
+         - A brief summary (2-3 sentences)\n\
+         - Key points as bullet points with timestamps if available\n\
+         - Notable quotes\n\
+         - Action items / takeaways\n\n\
+         Transcript:\n{}",
+        truncated
+    );
+    provider.complete(
+        "You format transcripts into structured study notes in Markdown. Return only the formatted notes.",
+        &prompt
+    ).await
+}

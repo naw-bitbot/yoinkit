@@ -3,6 +3,7 @@ import { useDownloads } from "../hooks/useDownloads";
 import { DownloadList } from "../components/DownloadList";
 import { Button, UrlField } from "@yoinkit/ui";
 import { Info, Subtitles, FileText } from "lucide-react";
+import { api } from "../lib/tauri";
 
 interface VideoInfo {
   title: string;
@@ -34,6 +35,9 @@ export function VideoPage() {
   const [subFormat, setSubFormat] = useState("srt");
   const [subsOnly, setSubsOnly] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [transcriptText, setTranscriptText] = useState("");
+  const [structuring, setStructuring] = useState(false);
+  const [structureResult, setStructureResult] = useState<string | null>(null);
 
   const qualities = ["4k", "1080p", "720p", "480p", "360p"];
   const subFormats = ["srt", "vtt", "ass", "txt"];
@@ -86,6 +90,22 @@ export function VideoPage() {
     } catch (err: any) {
       setError(typeof err === "string" ? err : err.message || "Download failed");
     } finally { setLoading(false); }
+  };
+
+  const handleStructure = async () => {
+    if (!transcriptText.trim()) return;
+    setStructuring(true);
+    setStructureResult(null);
+    try {
+      await api.structureTranscript(transcriptText);
+      setStructureResult("Notes saved to Clipper!");
+      setTranscriptText("");
+      setTimeout(() => setStructureResult(null), 3000);
+    } catch (err) {
+      setStructureResult(err instanceof Error ? err.message : "Failed to structure notes");
+    } finally {
+      setStructuring(false);
+    }
   };
 
   const videoDownloads = downloads.filter(d => d.flags === "video" || d.flags === "audio_only");
@@ -182,6 +202,38 @@ export function VideoPage() {
           </Button>
         </div>
       )}
+
+      {/* Structure Transcript */}
+      <div className="glass rounded-[10px] p-4 space-y-3">
+        <label className="flex items-center gap-2 text-[13px] font-medium" style={{ color: 'var(--text)' }}>
+          <FileText size={15} strokeWidth={1.5} style={{ color: 'var(--text-secondary)' }} />
+          Structure Transcript
+        </label>
+        <textarea
+          value={transcriptText}
+          onChange={(e) => setTranscriptText(e.target.value)}
+          placeholder="Paste transcript text here…"
+          className="apple-input w-full px-3.5 py-2 text-[13px] resize-none"
+          rows={4}
+          style={{ minHeight: '80px' }}
+        />
+        <div className="flex items-center gap-2">
+          <Button
+            variant="primary"
+            size="sm"
+            loading={structuring}
+            disabled={structuring || !transcriptText.trim()}
+            onClick={handleStructure}
+          >
+            Structure Notes
+          </Button>
+          {structureResult && (
+            <span className="text-[11px]" style={{ color: structureResult.startsWith("Notes") ? 'var(--brand)' : 'var(--danger)' }}>
+              {structureResult}
+            </span>
+          )}
+        </div>
+      </div>
 
       {videoDownloads.length > 0 && (
         <div>

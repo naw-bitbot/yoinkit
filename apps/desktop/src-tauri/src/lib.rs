@@ -100,6 +100,7 @@ pub fn run() {
             commands::chat_ask,
             commands::chat_history,
             commands::chat_clear,
+            commands::structure_transcript_cmd,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

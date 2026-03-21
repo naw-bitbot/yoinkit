@@ -152,4 +152,6 @@ export const api = {
   chatAsk: (question: string) => invoke<ChatResponse>("chat_ask", { question }),
   chatHistory: (limit?: number) => invoke<ChatMessage[]>("chat_history", { limit }),
   chatClear: () => invoke<void>("chat_clear"),
+
+  structureTranscript: (transcript: string) => invoke<Clip>("structure_transcript_cmd", { transcript }),
 };

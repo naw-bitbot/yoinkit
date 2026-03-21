@@ -632,3 +632,26 @@ pub fn chat_history(limit: Option<usize>, state: State<'_, AppState>) -> Result<
 pub fn chat_clear(state: State<'_, AppState>) -> Result<(), String> {
     state.db.clear_chat_messages().map_err(|e| format!("DB error: {}", e))
 }
+
+#[tauri::command]
+pub async fn structure_transcript_cmd(transcript: String, state: State<'_, AppState>) -> Result<Clip, String> {
+    let app_settings = settings::get_settings(&state.db)?;
+    let provider = ai::AiProvider::from_settings(&app_settings, &state.db);
+    let structured = ai::structure_transcript(&transcript, &provider).await?;
+
+    let clip = Clip {
+        id: Uuid::new_v4().to_string(),
+        url: "transcript".to_string(),
+        title: Some("Structured Notes".to_string()),
+        markdown: Some(structured),
+        html: None,
+        summary: None,
+        tags: "[]".to_string(),
+        source_type: "transcript".to_string(),
+        vault_path: None,
+        created_at: chrono::Utc::now().to_rfc3339(),
+        updated_at: None,
+    };
+    state.db.insert_clip(&clip).map_err(|e| format!("DB error: {}", e))?;
+    Ok(clip)
+}
