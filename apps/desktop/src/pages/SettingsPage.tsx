@@ -1,6 +1,6 @@
 import { useSettings } from "../hooks/useSettings";
 import { Button } from "@yoinkit/ui";
-import { FolderOpen, MousePointer, Layers, Crown, Loader2, Sun, Moon, Monitor } from "lucide-react";
+import { FolderOpen, MousePointer, Layers, Crown, Loader2, Sun, Moon, Monitor, NotebookPen, Brain } from "lucide-react";
 import { useThemeContext } from "../App";
 
 export function SettingsPage() {
@@ -92,6 +92,85 @@ export function SettingsPage() {
               className="apple-input w-20 px-3 h-[30px] text-[13px] tabular-nums mt-2"
             />
           </div>
+          </div>
+        </div>
+
+        {/* Obsidian & Clipper */}
+        <div>
+          <h3 className="text-[11px] font-medium uppercase tracking-wide mb-2 px-1" style={{ color: 'var(--text-tertiary)' }}>Obsidian &amp; Clipper</h3>
+          <div className="glass rounded-[10px] p-4 space-y-3">
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-[13px] font-medium" style={{ color: 'var(--text)' }}>
+                <NotebookPen size={15} strokeWidth={1.5} style={{ color: 'var(--text-secondary)' }} />
+                Obsidian vault path
+              </label>
+              <input
+                type="text"
+                value={settings.obsidian_vault_path}
+                onChange={(e) => updateSettings({ obsidian_vault_path: e.target.value })}
+                className="apple-input w-full px-3.5 h-[30px] text-[13px]"
+              />
+              <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>Path to your Obsidian vault folder</p>
+            </div>
+
+            <div className="space-y-2 pt-2" style={{ borderTop: '0.5px solid var(--separator)' }}>
+              <label className="flex items-center gap-2 text-[13px] font-medium" style={{ color: 'var(--text)' }}>
+                <FolderOpen size={15} strokeWidth={1.5} style={{ color: 'var(--text-secondary)' }} />
+                Attachments subfolder
+              </label>
+              <input
+                type="text"
+                value={settings.obsidian_attachments_folder}
+                onChange={(e) => updateSettings({ obsidian_attachments_folder: e.target.value })}
+                placeholder="assets/yoinkit"
+                className="apple-input w-full px-3.5 h-[30px] text-[13px]"
+              />
+              <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>Where images and attachments are stored within the vault</p>
+            </div>
+
+            <div className="pt-2" style={{ borderTop: '0.5px solid var(--separator)' }}>
+              <label className="flex items-center gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={settings.clip_on_download}
+                  onChange={(e) => updateSettings({ clip_on_download: e.target.checked })}
+                />
+                <span className="text-[13px]" style={{ color: 'var(--text)' }}>Auto-clip on download</span>
+              </label>
+              <p className="text-[11px] mt-1 pl-6" style={{ color: 'var(--text-tertiary)' }}>Automatically create a clip note when a download completes</p>
+            </div>
+
+            <div className="space-y-2 pt-2" style={{ borderTop: '0.5px solid var(--separator)' }}>
+              <label className="flex items-center gap-2 text-[13px] font-medium" style={{ color: 'var(--text)' }}>
+                <Brain size={15} strokeWidth={1.5} style={{ color: 'var(--text-secondary)' }} />
+                AI Provider
+              </label>
+              <select
+                value={settings.ai_provider}
+                onChange={(e) => updateSettings({ ai_provider: e.target.value })}
+                className="apple-input w-full px-3.5 h-[30px] text-[13px]"
+              >
+                <option value="none">None</option>
+                <option value="ollama">Ollama</option>
+                <option value="claude">Claude</option>
+                <option value="openai">OpenAI</option>
+              </select>
+            </div>
+
+            {settings.ai_provider !== "none" && (
+              <div className="space-y-2 pt-2" style={{ borderTop: '0.5px solid var(--separator)' }}>
+                <label className="flex items-center gap-2 text-[13px] font-medium" style={{ color: 'var(--text)' }}>
+                  AI Model
+                </label>
+                <input
+                  type="text"
+                  value={settings.ai_model}
+                  onChange={(e) => updateSettings({ ai_model: e.target.value })}
+                  placeholder="e.g. llama3, claude-sonnet-4-20250514"
+                  className="apple-input w-full px-3.5 h-[30px] text-[13px]"
+                />
+              </div>
+            )}
           </div>
         </div>
 
