@@ -214,6 +214,44 @@ pub async fn ask_yoinks(
     })
 }
 
+// Task 7.2: Yoink Digest
+pub async fn generate_digest(
+    clips: &[crate::db::Clip],
+    downloads: &[crate::db::Download],
+    provider: &AiProvider,
+) -> Result<String, String> {
+    let clip_count = clips.len();
+    let download_count = downloads.len();
+
+    // Build summary of recent items
+    let mut items_summary = String::new();
+    for clip in clips.iter().take(20) {
+        let title = clip.title.as_deref().unwrap_or("Untitled");
+        items_summary.push_str(&format!("- [Clip] {}: {}\n", title, clip.url));
+    }
+    for dl in downloads.iter().take(20) {
+        items_summary.push_str(&format!("- [Download] {}\n", dl.url));
+    }
+
+    let prompt = format!(
+        "Create a weekly digest summary of the user's saved content.\n\
+         Total clips: {}\n\
+         Total downloads: {}\n\n\
+         Recent items:\n{}\n\n\
+         Format as Markdown with:\n\
+         - A catchy opening line about what was yoinked this week\n\
+         - Group items by detected themes/topics\n\
+         - Highlight the most interesting items\n\
+         - End with a fun stat or observation",
+        clip_count, download_count, items_summary
+    );
+
+    provider.complete(
+        "You create engaging weekly digest summaries of saved web content. Be concise and fun.",
+        &prompt
+    ).await
+}
+
 // Task 5.7: Transcript → Structured Notes
 pub async fn structure_transcript(transcript: &str, provider: &AiProvider) -> Result<String, String> {
     let truncated = &transcript[..transcript.len().min(8000)];

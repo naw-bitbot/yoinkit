@@ -6,7 +6,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   one_click_mode: "current_page",
   max_concurrent: 3,
   pro_unlocked: false,
-};
+  bandwidth_limit: 0,
+} as AppSettings;
 
 export function useSettings() {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);

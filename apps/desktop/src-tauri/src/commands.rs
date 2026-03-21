@@ -734,6 +734,68 @@ pub fn export_batch_notebooklm(ids: Vec<String>, export_dir: String, batch_name:
     crate::notebooklm::export_batch_for_notebooklm(&clips, &export_dir, &batch_name)
 }
 
+// Monitor commands
+
+#[tauri::command]
+pub fn create_monitor(url: String, state: State<'_, AppState>) -> Result<String, String> {
+    let monitor = crate::db::Monitor {
+        id: Uuid::new_v4().to_string(),
+        url,
+        last_hash: None,
+        last_checked: None,
+        change_detected: 0,
+        notify: 1,
+        created_at: chrono::Utc::now().to_rfc3339(),
+    };
+    state.db.insert_monitor(&monitor).map_err(|e| format!("DB error: {}", e))?;
+    Ok(monitor.id)
+}
+
+#[tauri::command]
+pub fn list_monitors(state: State<'_, AppState>) -> Result<Vec<crate::db::Monitor>, String> {
+    state.db.list_monitors().map_err(|e| format!("DB error: {}", e))
+}
+
+#[tauri::command]
+pub fn delete_monitor(id: String, state: State<'_, AppState>) -> Result<(), String> {
+    state.db.delete_monitor(&id).map_err(|e| format!("DB error: {}", e))
+}
+
+#[tauri::command]
+pub async fn check_monitor(id: String, state: State<'_, AppState>) -> Result<bool, String> {
+    let monitor = state.db.get_monitor(&id)
+        .map_err(|e| format!("DB error: {}", e))?
+        .ok_or_else(|| format!("Monitor not found: {}", id))?;
+    crate::monitor::check_for_changes(&monitor, &state.db).await
+}
+
+#[tauri::command]
+pub async fn generate_digest(state: State<'_, AppState>) -> Result<Clip, String> {
+    let app_settings = settings::get_settings(&state.db)?;
+    let provider = ai::AiProvider::from_settings(&app_settings, &state.db);
+    let clips = state.db.list_clips().map_err(|e| format!("DB error: {}", e))?;
+    let downloads = state.db.list_downloads().map_err(|e| format!("DB error: {}", e))?;
+
+    let digest_md = ai::generate_digest(&clips, &downloads, &provider).await?;
+
+    // Save as a clip with source_type = "digest"
+    let clip = Clip {
+        id: Uuid::new_v4().to_string(),
+        url: "digest".to_string(),
+        title: Some(format!("Weekly Digest - {}", chrono::Utc::now().format("%Y-%m-%d"))),
+        markdown: Some(digest_md),
+        html: None,
+        summary: None,
+        tags: "[\"digest\"]".to_string(),
+        source_type: "digest".to_string(),
+        vault_path: None,
+        created_at: chrono::Utc::now().to_rfc3339(),
+        updated_at: None,
+    };
+    state.db.insert_clip(&clip).map_err(|e| format!("DB error: {}", e))?;
+    Ok(clip)
+}
+
 // Schedule commands
 
 #[tauri::command]

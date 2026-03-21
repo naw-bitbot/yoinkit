@@ -15,6 +15,7 @@ mod ytdlp;
 mod image_scraper;
 mod clipper;
 mod mcp_server;
+mod monitor;
 mod notebooklm;
 
 use auth::AuthManager;
@@ -119,6 +120,11 @@ pub fn run() {
             commands::list_schedules,
             commands::delete_schedule,
             commands::toggle_schedule,
+            commands::create_monitor,
+            commands::list_monitors,
+            commands::delete_monitor,
+            commands::check_monitor,
+            commands::generate_digest,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

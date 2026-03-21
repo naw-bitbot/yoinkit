@@ -114,6 +114,16 @@ export interface Schedule {
   created_at: string;
 }
 
+export interface Monitor {
+  id: string;
+  url: string;
+  last_hash: string | null;
+  last_checked: string | null;
+  change_detected: number;
+  notify: number;
+  created_at: string;
+}
+
 export const api = {
   startDownload: (url: string, flags?: WgetFlags, savePath?: string) =>
     invoke<string>("start_download", { url, flags, savePath }),
@@ -179,4 +189,10 @@ export const api = {
   listSchedules: () => invoke<Schedule[]>("list_schedules"),
   deleteSchedule: (id: string) => invoke<void>("delete_schedule", { id }),
   toggleSchedule: (id: string, enabled: boolean) => invoke<void>("toggle_schedule", { id, enabled }),
+
+  createMonitor: (url: string) => invoke<string>("create_monitor", { url }),
+  listMonitors: () => invoke<Monitor[]>("list_monitors"),
+  deleteMonitor: (id: string) => invoke<void>("delete_monitor", { id }),
+  checkMonitor: (id: string) => invoke<boolean>("check_monitor", { id }),
+  generateDigest: () => invoke<Clip>("generate_digest"),
 };
