@@ -56,33 +56,92 @@ chrome.runtime.onInstalled.addListener(() => {
     title: "Yoink this page",
     contexts: ["page"],
   });
+  chrome.contextMenus.create({
+    id: "yoinkit-clip-selection",
+    title: "Clip selection to Yoinkit",
+    contexts: ["selection"],
+  });
+  chrome.contextMenus.create({
+    id: "yoinkit-clip-page",
+    title: "Clip page to Yoinkit",
+    contexts: ["page"],
+  });
 });
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
-  const url = info.menuItemId === "yoinkit-download-link"
-    ? info.linkUrl
-    : info.pageUrl;
+  if (info.menuItemId === "yoinkit-download-link" || info.menuItemId === "yoinkit-download-page") {
+    const url = info.menuItemId === "yoinkit-download-link"
+      ? info.linkUrl
+      : info.pageUrl;
 
-  if (!url) return;
+    if (!url) return;
 
-  try {
-    const token = await getToken();
-    await fetch(`${API_BASE}/download`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ url }),
-    });
+    try {
+      const token = await getToken();
+      await fetch(`${API_BASE}/download`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ url }),
+      });
 
-    if (tab?.id) {
-      chrome.action.setBadgeText({ text: "✓", tabId: tab.id });
-      chrome.action.setBadgeBackgroundColor({ color: "#22c55e", tabId: tab.id });
-      setTimeout(() => chrome.action.setBadgeText({ text: "", tabId: tab.id }), 2000);
+      if (tab?.id) {
+        chrome.action.setBadgeText({ text: "✓", tabId: tab.id });
+        chrome.action.setBadgeBackgroundColor({ color: "#22c55e", tabId: tab.id });
+        setTimeout(() => chrome.action.setBadgeText({ text: "", tabId: tab.id }), 2000);
+      }
+    } catch (err) {
+      console.error("Yoinkit: Context menu download failed", err);
     }
-  } catch (err) {
-    console.error("Yoinkit: Context menu download failed", err);
+  }
+
+  if (info.menuItemId === "yoinkit-clip-selection" && tab?.id) {
+    // Send message to content script to get selected HTML
+    chrome.tabs.sendMessage(tab.id, { type: "CLIP_SELECTION" }, async (response) => {
+      if (response?.success) {
+        try {
+          const token = await getToken();
+          await fetch(`${API_BASE}/clip`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ url: response.url, html: response.html }),
+          });
+          chrome.action.setBadgeText({ text: "✓", tabId: tab.id });
+          chrome.action.setBadgeBackgroundColor({ color: "#22c55e", tabId: tab.id });
+          setTimeout(() => chrome.action.setBadgeText({ text: "", tabId: tab.id! }), 2000);
+        } catch (err) {
+          console.error("Yoinkit: Clip failed", err);
+          showErrorBadge(tab.id);
+        }
+      }
+    });
+  }
+
+  if (info.menuItemId === "yoinkit-clip-page") {
+    try {
+      const token = await getToken();
+      await fetch(`${API_BASE}/clip`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ url: info.pageUrl }),
+      });
+      if (tab?.id) {
+        chrome.action.setBadgeText({ text: "✓", tabId: tab.id });
+        chrome.action.setBadgeBackgroundColor({ color: "#22c55e", tabId: tab.id });
+        setTimeout(() => chrome.action.setBadgeText({ text: "", tabId: tab.id! }), 2000);
+      }
+    } catch (err) {
+      console.error("Yoinkit: Page clip failed", err);
+      if (tab?.id) showErrorBadge(tab.id);
+    }
   }
 });
 
