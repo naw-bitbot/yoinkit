@@ -48,11 +48,17 @@ export function useDownloads() {
     await refresh();
   }, [refresh]);
 
+  const startVideoDownload = useCallback(async (url: string, format?: string, quality?: string, audioOnly?: boolean) => {
+    await api.startVideoDownload(url, format, quality, audioOnly);
+    await refresh();
+  }, [refresh]);
+
   return {
     downloads,
     loading,
     refresh,
     startDownload,
+    startVideoDownload,
     pauseDownload,
     resumeDownload,
     cancelDownload,

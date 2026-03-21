@@ -2,10 +2,13 @@ import { useState } from "react";
 
 // Pages
 import { SimplePage } from "./pages/SimplePage";
+import { VideoPage } from "./pages/VideoPage";
+import { AudioPage } from "./pages/AudioPage";
+import { ImagesPage } from "./pages/ImagesPage";
 import { ProPage } from "./pages/ProPage";
 import { SettingsPage } from "./pages/SettingsPage";
 
-type Page = "simple" | "pro" | "settings";
+type Page = "simple" | "video" | "audio" | "images" | "pro" | "settings";
 
 function App() {
   const [page, setPage] = useState<Page>("simple");
@@ -26,6 +29,9 @@ function App() {
             active={page === "simple"}
             onClick={() => setPage("simple")}
           />
+          <NavButton label="Video" icon="🎬" active={page === "video"} onClick={() => setPage("video")} />
+          <NavButton label="Audio" icon="🎵" active={page === "audio"} onClick={() => setPage("audio")} />
+          <NavButton label="Images" icon="🖼" active={page === "images"} onClick={() => setPage("images")} />
           <NavButton
             label="Pro Mode"
             icon="⚡"
@@ -41,13 +47,16 @@ function App() {
         </div>
 
         <div className="p-4 border-t border-yoinkit-muted/10">
-          <p className="text-xs text-yoinkit-muted">v0.1.0</p>
+          <p className="text-xs text-yoinkit-muted">v0.2.0</p>
         </div>
       </nav>
 
       {/* Main Content */}
       <main className="flex-1 p-6 overflow-y-auto">
         {page === "simple" && <SimplePage />}
+        {page === "video" && <VideoPage />}
+        {page === "audio" && <AudioPage />}
+        {page === "images" && <ImagesPage />}
         {page === "pro" && <ProPage />}
         {page === "settings" && <SettingsPage />}
       </main>

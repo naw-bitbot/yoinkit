@@ -72,4 +72,13 @@ export const api = {
   savePreset: (name: string, flagsJson: string) => invoke<string>("save_preset", { name, flagsJson }),
   listPresets: () => invoke<Preset[]>("list_presets"),
   deletePreset: (id: string) => invoke<void>("delete_preset", { id }),
+
+  getVideoInfo: (url: string) => invoke<any>("get_video_info", { url }),
+  startVideoDownload: (url: string, format?: string, quality?: string, audioOnly?: boolean, savePath?: string) =>
+    invoke<string>("start_video_download", { url, format, quality, audioOnly: audioOnly || false, savePath }),
+  startAudioDownload: (url: string, format?: string, quality?: string, savePath?: string) =>
+    invoke<string>("start_audio_download", { url, format, quality, savePath }),
+  scrapeImages: (url: string) => invoke<any[]>("scrape_images", { url }),
+  downloadImages: (imageUrls: string[], savePath?: string) =>
+    invoke<string>("download_images", { imageUrls, savePath }),
 };
