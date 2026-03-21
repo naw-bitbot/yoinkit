@@ -5,6 +5,7 @@ mod commands;
 mod db;
 mod download_manager;
 mod markdown;
+mod search;
 mod settings;
 mod tray;
 mod wget;
@@ -23,10 +24,24 @@ pub fn run() {
     let download_manager = Arc::new(DownloadManager::new(db.clone()));
     let auth = Arc::new(AuthManager::new());
 
+    let search_engine = {
+        let mut index_path = dirs::data_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
+        index_path.push("Yoinkit");
+        index_path.push("search_index");
+        match search::SearchEngine::new(&index_path.to_string_lossy()) {
+            Ok(engine) => Some(Arc::new(engine)),
+            Err(e) => {
+                eprintln!("Warning: Search engine failed to initialize: {}", e);
+                None
+            }
+        }
+    };
+
     let app_state = Arc::new(AppState {
         db: db.clone(),
         download_manager: download_manager.clone(),
         auth_token: auth.get_token(),
+        search_engine,
     });
 
     // Clone for API server
@@ -77,6 +92,8 @@ pub fn run() {
             commands::archive_url,
             commands::check_link_status,
             commands::check_all_archived_links,
+            commands::search_yoinks,
+            commands::rebuild_search_index,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

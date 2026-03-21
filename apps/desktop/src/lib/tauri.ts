@@ -77,6 +77,16 @@ export interface Clip {
   updated_at: string | null;
 }
 
+export interface SearchResult {
+  id: string;
+  content_type: string;
+  title: string;
+  snippet: string;
+  url: string;
+  score: number;
+  created_at: string;
+}
+
 export const api = {
   startDownload: (url: string, flags?: WgetFlags, savePath?: string) =>
     invoke<string>("start_download", { url, flags, savePath }),
@@ -119,4 +129,7 @@ export const api = {
 
   checkLinkStatus: (url: string) => invoke<{ url: string; status: number; alive: boolean }>("check_link_status", { url }),
   checkAllArchivedLinks: () => invoke<Array<{ url: string; status: number; alive: boolean }>>("check_all_archived_links"),
+
+  searchYoinks: (query: string, limit?: number) => invoke<SearchResult[]>("search_yoinks", { query, limit }),
+  rebuildSearchIndex: () => invoke<void>("rebuild_search_index"),
 };

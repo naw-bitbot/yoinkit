@@ -15,6 +15,7 @@ pub struct AppState {
     pub db: Arc<Database>,
     pub download_manager: Arc<DownloadManager>,
     pub auth_token: String,
+    pub search_engine: Option<Arc<crate::search::SearchEngine>>,
 }
 
 #[tauri::command]
@@ -476,6 +477,20 @@ pub async fn check_link_status(url: String) -> Result<crate::archiver::LinkStatu
 pub async fn check_all_archived_links(state: State<'_, AppState>) -> Result<Vec<crate::archiver::LinkStatus>, String> {
     let clips = state.db.list_clips().map_err(|e| format!("DB error: {}", e))?;
     Ok(crate::archiver::check_all_links(&clips).await)
+}
+
+#[tauri::command]
+pub fn search_yoinks(query: String, limit: Option<usize>, state: State<'_, AppState>) -> Result<Vec<crate::search::SearchResult>, String> {
+    let engine = state.search_engine.as_ref().ok_or("Search not initialized")?;
+    engine.search(&query, limit.unwrap_or(20))
+}
+
+#[tauri::command]
+pub fn rebuild_search_index(state: State<'_, AppState>) -> Result<(), String> {
+    let engine = state.search_engine.as_ref().ok_or("Search not initialized")?;
+    let clips = state.db.list_clips().map_err(|e| format!("DB error: {}", e))?;
+    let downloads = state.db.list_downloads().map_err(|e| format!("DB error: {}", e))?;
+    engine.rebuild_index(&clips, &downloads)
 }
 
 #[tauri::command]
