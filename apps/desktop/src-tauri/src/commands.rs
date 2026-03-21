@@ -12,6 +12,14 @@ use std::sync::Arc;
 use tauri::State;
 use uuid::Uuid;
 
+#[derive(serde::Serialize)]
+pub struct DuplicateInfo {
+    pub id: String,
+    pub content_type: String,
+    pub title: String,
+    pub created_at: String,
+}
+
 #[derive(Clone)]
 pub struct AppState {
     pub db: Arc<Database>,
@@ -60,6 +68,53 @@ pub fn list_downloads(state: State<'_, AppState>) -> Result<Vec<crate::db::Downl
 #[tauri::command]
 pub fn delete_download(state: State<'_, AppState>, id: String) -> Result<(), String> {
     state.download_manager.delete_download(&id)
+}
+
+#[tauri::command]
+pub fn check_duplicate(url: String, state: State<'_, AppState>) -> Result<Option<DuplicateInfo>, String> {
+    // Check downloads
+    let downloads = state.db.list_downloads().map_err(|e| format!("DB error: {}", e))?;
+    for dl in &downloads {
+        if dl.url == url {
+            return Ok(Some(DuplicateInfo {
+                id: dl.id.clone(),
+                content_type: "download".to_string(),
+                title: dl.url.clone(),
+                created_at: dl.created_at.clone(),
+            }));
+        }
+    }
+    // Check clips
+    let clips = state.db.list_clips().map_err(|e| format!("DB error: {}", e))?;
+    for clip in &clips {
+        if clip.url == url {
+            return Ok(Some(DuplicateInfo {
+                id: clip.id.clone(),
+                content_type: "clip".to_string(),
+                title: clip.title.clone().unwrap_or_else(|| clip.url.clone()),
+                created_at: clip.created_at.clone(),
+            }));
+        }
+    }
+    Ok(None)
+}
+
+#[tauri::command]
+pub fn compute_file_hash(file_path: String) -> Result<String, String> {
+    use sha2::{Sha256, Digest};
+    use std::io::Read;
+
+    let mut file = std::fs::File::open(&file_path)
+        .map_err(|e| format!("Failed to open file: {}", e))?;
+    let mut hasher = Sha256::new();
+    let mut buffer = [0u8; 8192];
+    loop {
+        let bytes_read = file.read(&mut buffer)
+            .map_err(|e| format!("Failed to read file: {}", e))?;
+        if bytes_read == 0 { break; }
+        hasher.update(&buffer[..bytes_read]);
+    }
+    Ok(format!("{:x}", hasher.finalize()))
 }
 
 #[tauri::command]
@@ -143,6 +198,7 @@ pub async fn start_video_download(
         error: None,
         created_at: now,
         completed_at: None,
+        file_hash: None,
     };
 
     state.db.insert_download(&download).map_err(|e| format!("DB error: {}", e))?;
@@ -257,6 +313,7 @@ pub async fn download_subtitles(
         error: None,
         created_at: now,
         completed_at: None,
+        file_hash: None,
     };
 
     state.db.insert_download(&download).map_err(|e| format!("DB error: {}", e))?;
@@ -330,6 +387,7 @@ pub async fn download_images(
         error: None,
         created_at: now,
         completed_at: None,
+        file_hash: None,
     };
 
     state.db.insert_download(&download).map_err(|e| format!("DB error: {}", e))?;
@@ -674,4 +732,44 @@ pub fn export_batch_notebooklm(ids: Vec<String>, export_dir: String, batch_name:
         clips.push(clip);
     }
     crate::notebooklm::export_batch_for_notebooklm(&clips, &export_dir, &batch_name)
+}
+
+// Schedule commands
+
+#[tauri::command]
+pub fn create_schedule(url: String, job_type: String, cron: String, flags: Option<String>, state: State<'_, AppState>) -> Result<String, String> {
+    let schedule = crate::db::Schedule {
+        id: Uuid::new_v4().to_string(),
+        url,
+        job_type,
+        cron: Some(cron),
+        flags: flags.unwrap_or_default(),
+        enabled: 1,
+        last_run: None,
+        next_run: None,
+        created_at: chrono::Utc::now().to_rfc3339(),
+    };
+    state.db.insert_schedule(&schedule).map_err(|e| format!("DB error: {}", e))?;
+    Ok(schedule.id)
+}
+
+#[tauri::command]
+pub fn list_schedules(state: State<'_, AppState>) -> Result<Vec<crate::db::Schedule>, String> {
+    state.db.list_schedules().map_err(|e| format!("DB error: {}", e))
+}
+
+#[tauri::command]
+pub fn delete_schedule(id: String, state: State<'_, AppState>) -> Result<(), String> {
+    state.db.delete_schedule(&id).map_err(|e| format!("DB error: {}", e))
+}
+
+#[tauri::command]
+pub fn toggle_schedule(id: String, enabled: bool, state: State<'_, AppState>) -> Result<(), String> {
+    let mut schedule = state.db.list_schedules()
+        .map_err(|e| format!("DB error: {}", e))?
+        .into_iter()
+        .find(|s| s.id == id)
+        .ok_or_else(|| format!("Schedule not found: {}", id))?;
+    schedule.enabled = if enabled { 1 } else { 0 };
+    state.db.update_schedule(&schedule).map_err(|e| format!("DB error: {}", e))
 }

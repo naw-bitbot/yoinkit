@@ -255,3 +255,79 @@ fn extract_eta(line: &str) -> Option<String> {
     }
     None
 }
+
+/// Check if a URL supports range requests and get content length
+pub async fn check_range_support(url: &str) -> Result<(bool, Option<u64>), String> {
+    let client = reqwest::Client::new();
+    let resp = client.head(url)
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| format!("HEAD request failed: {}", e))?;
+
+    let accepts_ranges = resp.headers()
+        .get("accept-ranges")
+        .and_then(|v| v.to_str().ok())
+        .map(|v| v != "none")
+        .unwrap_or(false);
+
+    let content_length = resp.headers()
+        .get("content-length")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.parse::<u64>().ok());
+
+    Ok((accepts_ranges, content_length))
+}
+
+/// Download a specific byte range of a file using wget
+pub async fn download_chunk(
+    url: &str,
+    start: u64,
+    end: u64,
+    output_path: &str,
+) -> Result<(), String> {
+    let status = tokio::process::Command::new("wget")
+        .args(&[
+            "--quiet",
+            "--header", &format!("Range: bytes={}-{}", start, end),
+            "-O", output_path,
+            url,
+        ])
+        .status()
+        .await
+        .map_err(|e| format!("wget chunk failed: {}", e))?;
+
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("wget chunk exited with code: {}", status))
+    }
+}
+
+/// Concatenate chunk files into a single output file
+pub fn concatenate_chunks(chunk_paths: &[String], output_path: &str) -> Result<(), String> {
+    use std::fs::{File, OpenOptions};
+    use std::io::{Read, Write};
+
+    let mut output = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .open(output_path)
+        .map_err(|e| format!("Failed to create output file: {}", e))?;
+
+    for chunk_path in chunk_paths {
+        let mut chunk = File::open(chunk_path)
+            .map_err(|e| format!("Failed to open chunk {}: {}", chunk_path, e))?;
+        let mut buf = Vec::new();
+        chunk.read_to_end(&mut buf)
+            .map_err(|e| format!("Failed to read chunk: {}", e))?;
+        output.write_all(&buf)
+            .map_err(|e| format!("Failed to write chunk: {}", e))?;
+        // Clean up chunk file
+        let _ = std::fs::remove_file(chunk_path);
+    }
+
+    Ok(()
+    )
+}

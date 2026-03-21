@@ -17,6 +17,7 @@ pub struct Download {
     pub error: Option<String>,
     pub created_at: String,
     pub completed_at: Option<String>,
+    pub file_hash: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -108,6 +109,9 @@ impl Database {
         if current_version < 2 {
             Self::migrate_v2(&conn)?;
         }
+        if current_version < 3 {
+            Self::migrate_v3(&conn)?;
+        }
 
         let db = Self { conn: Mutex::new(conn) };
         db.init_default_settings()?;
@@ -135,6 +139,9 @@ impl Database {
         }
         if current_version < 2 {
             Self::migrate_v2(&conn)?;
+        }
+        if current_version < 3 {
+            Self::migrate_v3(&conn)?;
         }
 
         let db = Self { conn: Mutex::new(conn) };
@@ -240,6 +247,17 @@ impl Database {
         Ok(())
     }
 
+    fn migrate_v3(conn: &Connection) -> Result<()> {
+        conn.execute_batch("
+            ALTER TABLE downloads ADD COLUMN file_hash TEXT;
+        ")?;
+        conn.execute(
+            "INSERT INTO schema_version (version, applied_at) VALUES (3, ?1)",
+            params![chrono::Utc::now().to_rfc3339()],
+        )?;
+        Ok(())
+    }
+
     fn init_default_settings(&self) -> Result<()> {
         let conn = self.conn.lock().unwrap();
         let defaults = vec![
@@ -260,6 +278,7 @@ impl Database {
             ("ai_api_key_configured", "false".to_string()),
             ("ai_model", "".to_string()),
             ("clip_on_download", "false".to_string()),
+            ("bandwidth_limit", "0".to_string()),
         ];
         for (key, value) in defaults {
             conn.execute(
@@ -285,13 +304,13 @@ impl Database {
     pub fn insert_download(&self, download: &Download) -> Result<()> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
-            "INSERT INTO downloads (id, url, status, progress, save_path, flags, file_size, speed, eta, error, created_at, completed_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+            "INSERT INTO downloads (id, url, status, progress, save_path, flags, file_size, speed, eta, error, created_at, completed_at, file_hash)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
             params![
                 download.id, download.url, download.status, download.progress,
                 download.save_path, download.flags, download.file_size,
                 download.speed, download.eta, download.error,
-                download.created_at, download.completed_at,
+                download.created_at, download.completed_at, download.file_hash,
             ],
         )?;
         Ok(())
@@ -300,11 +319,11 @@ impl Database {
     pub fn update_download(&self, download: &Download) -> Result<()> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
-            "UPDATE downloads SET status=?2, progress=?3, save_path=?4, flags=?5, file_size=?6, speed=?7, eta=?8, error=?9, completed_at=?10 WHERE id=?1",
+            "UPDATE downloads SET status=?2, progress=?3, save_path=?4, flags=?5, file_size=?6, speed=?7, eta=?8, error=?9, completed_at=?10, file_hash=?11 WHERE id=?1",
             params![
                 download.id, download.status, download.progress, download.save_path,
                 download.flags, download.file_size, download.speed, download.eta,
-                download.error, download.completed_at,
+                download.error, download.completed_at, download.file_hash,
             ],
         )?;
         Ok(())
@@ -313,7 +332,7 @@ impl Database {
     pub fn get_download(&self, id: &str) -> Result<Option<Download>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, url, status, progress, save_path, flags, file_size, speed, eta, error, created_at, completed_at FROM downloads WHERE id = ?1"
+            "SELECT id, url, status, progress, save_path, flags, file_size, speed, eta, error, created_at, completed_at, file_hash FROM downloads WHERE id = ?1"
         )?;
         let mut rows = stmt.query_map(params![id], |row| {
             Ok(Download {
@@ -321,6 +340,7 @@ impl Database {
                 progress: row.get(3)?, save_path: row.get(4)?, flags: row.get(5)?,
                 file_size: row.get(6)?, speed: row.get(7)?, eta: row.get(8)?,
                 error: row.get(9)?, created_at: row.get(10)?, completed_at: row.get(11)?,
+                file_hash: row.get(12)?,
             })
         })?;
         match rows.next() {
@@ -332,7 +352,7 @@ impl Database {
     pub fn list_downloads(&self) -> Result<Vec<Download>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, url, status, progress, save_path, flags, file_size, speed, eta, error, created_at, completed_at FROM downloads ORDER BY created_at DESC"
+            "SELECT id, url, status, progress, save_path, flags, file_size, speed, eta, error, created_at, completed_at, file_hash FROM downloads ORDER BY created_at DESC"
         )?;
         let rows = stmt.query_map([], |row| {
             Ok(Download {
@@ -340,6 +360,7 @@ impl Database {
                 progress: row.get(3)?, save_path: row.get(4)?, flags: row.get(5)?,
                 file_size: row.get(6)?, speed: row.get(7)?, eta: row.get(8)?,
                 error: row.get(9)?, created_at: row.get(10)?, completed_at: row.get(11)?,
+                file_hash: row.get(12)?,
             })
         })?;
         rows.collect()

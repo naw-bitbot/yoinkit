@@ -68,6 +68,7 @@ impl DownloadManager {
             error: None,
             created_at: now,
             completed_at: None,
+            file_hash: None,
         };
 
         self.db.insert_download(&download).map_err(|e| format!("DB error: {}", e))?;

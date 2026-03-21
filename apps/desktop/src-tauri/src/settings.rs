@@ -16,6 +16,7 @@ pub struct AppSettings {
     pub ai_api_key_configured: bool,
     pub ai_model: String,
     pub clip_on_download: bool,
+    pub bandwidth_limit: u32,
 }
 
 pub fn get_settings(db: &Arc<Database>) -> Result<AppSettings, String> {
@@ -39,6 +40,7 @@ pub fn get_settings(db: &Arc<Database>) -> Result<AppSettings, String> {
         ai_api_key_configured: get("ai_api_key_configured", "false") == "true",
         ai_model: get("ai_model", ""),
         clip_on_download: get("clip_on_download", "false") == "true",
+        bandwidth_limit: get("bandwidth_limit", "0").parse().unwrap_or(0),
     })
 }
 
@@ -59,5 +61,6 @@ pub fn update_settings(db: &Arc<Database>, settings: &AppSettings) -> Result<(),
     set("ai_api_key_configured", if settings.ai_api_key_configured { "true" } else { "false" })?;
     set("ai_model", &settings.ai_model)?;
     set("clip_on_download", if settings.clip_on_download { "true" } else { "false" })?;
+    set("bandwidth_limit", &settings.bandwidth_limit.to_string())?;
     Ok(())
 }

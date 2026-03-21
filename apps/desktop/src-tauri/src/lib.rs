@@ -6,6 +6,7 @@ mod commands;
 mod db;
 mod download_manager;
 mod markdown;
+mod scheduler;
 mod search;
 mod settings;
 mod tray;
@@ -63,6 +64,13 @@ pub fn run() {
                 api::start_api_server(api_state, api_auth).await;
             });
 
+            // Start scheduler
+            let scheduler_db = db.clone();
+            tauri::async_runtime::spawn(async move {
+                let scheduler = scheduler::Scheduler::new(scheduler_db);
+                scheduler.run().await;
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -73,6 +81,8 @@ pub fn run() {
             commands::get_download,
             commands::list_downloads,
             commands::delete_download,
+            commands::check_duplicate,
+            commands::compute_file_hash,
             commands::get_settings,
             commands::update_settings,
             commands::save_preset,
@@ -105,6 +115,10 @@ pub fn run() {
             commands::structure_transcript_cmd,
             commands::export_clip_notebooklm,
             commands::export_batch_notebooklm,
+            commands::create_schedule,
+            commands::list_schedules,
+            commands::delete_schedule,
+            commands::toggle_schedule,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -13,6 +13,7 @@ export interface Download {
   error: string | null;
   created_at: string;
   completed_at: string | null;
+  file_hash: string | null;
 }
 
 export interface WgetFlags {
@@ -54,6 +55,7 @@ export interface AppSettings {
   ai_api_key_configured: boolean;
   ai_model: string;
   clip_on_download: boolean;
+  bandwidth_limit: number;
 }
 
 export interface Preset {
@@ -100,6 +102,18 @@ export interface ChatMessage {
   created_at: string;
 }
 
+export interface Schedule {
+  id: string;
+  url: string;
+  job_type: string;
+  cron: string | null;
+  flags: string;
+  enabled: number;
+  last_run: string | null;
+  next_run: string | null;
+  created_at: string;
+}
+
 export const api = {
   startDownload: (url: string, flags?: WgetFlags, savePath?: string) =>
     invoke<string>("start_download", { url, flags, savePath }),
@@ -110,6 +124,9 @@ export const api = {
   getDownload: (id: string) => invoke<Download | null>("get_download", { id }),
   listDownloads: () => invoke<Download[]>("list_downloads"),
   deleteDownload: (id: string) => invoke<void>("delete_download", { id }),
+
+  checkDuplicate: (url: string) => invoke<{ id: string; content_type: string; title: string; created_at: string } | null>("check_duplicate", { url }),
+  computeFileHash: (filePath: string) => invoke<string>("compute_file_hash", { filePath }),
 
   getSettings: () => invoke<AppSettings>("get_settings"),
   updateSettings: (newSettings: AppSettings) => invoke<void>("update_settings", { newSettings }),
@@ -157,4 +174,9 @@ export const api = {
 
   exportClipNotebooklm: (id: string, exportDir: string) => invoke<string>("export_clip_notebooklm", { id, exportDir }),
   exportBatchNotebooklm: (ids: string[], exportDir: string, batchName: string) => invoke<string>("export_batch_notebooklm", { ids, exportDir, batchName }),
+
+  createSchedule: (url: string, jobType: string, cron: string, flags?: string) => invoke<string>("create_schedule", { url, jobType, cron, flags }),
+  listSchedules: () => invoke<Schedule[]>("list_schedules"),
+  deleteSchedule: (id: string) => invoke<void>("delete_schedule", { id }),
+  toggleSchedule: (id: string, enabled: boolean) => invoke<void>("toggle_schedule", { id, enabled }),
 };

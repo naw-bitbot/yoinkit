@@ -1,11 +1,20 @@
+import { useState } from "react";
 import { useSettings } from "../hooks/useSettings";
 import { Button } from "@yoinkit/ui";
-import { FolderOpen, MousePointer, Layers, Crown, Loader2, Sun, Moon, Monitor, NotebookPen, Brain } from "lucide-react";
+import { FolderOpen, MousePointer, Layers, Crown, Loader2, Sun, Moon, Monitor, NotebookPen, Brain, KeyRound, Link, Gauge } from "lucide-react";
 import { useThemeContext } from "../App";
+
+const AI_PROVIDER_DEFAULTS: Record<string, string> = {
+  claude: "claude-sonnet-4-6",
+  openai: "gpt-4o",
+  ollama: "llama3.2",
+  none: "",
+};
 
 export function SettingsPage() {
   const { settings, loading, updateSettings } = useSettings();
   const { theme, setTheme } = useThemeContext();
+  const [apiKeyInput, setApiKeyInput] = useState("");
 
   if (loading) {
     return (
@@ -92,6 +101,23 @@ export function SettingsPage() {
               className="apple-input w-20 px-3 h-[30px] text-[13px] tabular-nums mt-2"
             />
           </div>
+
+          <div className="pt-2" style={{ borderTop: '0.5px solid var(--separator)' }}>
+            <label className="flex items-center gap-2 text-[13px] font-medium" style={{ color: 'var(--text)' }}>
+              <Gauge size={15} strokeWidth={1.5} style={{ color: 'var(--text-secondary)' }} />
+              Bandwidth limit
+            </label>
+            <div className="flex items-center gap-2 mt-2">
+              <input
+                type="number"
+                min={0}
+                value={settings.bandwidth_limit || 0}
+                onChange={(e) => updateSettings({ bandwidth_limit: parseInt(e.target.value) || 0 })}
+                className="apple-input w-24 px-3 h-[30px] text-[13px] tabular-nums"
+              />
+              <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>KB/s (0 = unlimited)</span>
+            </div>
+          </div>
           </div>
         </div>
 
@@ -145,17 +171,73 @@ export function SettingsPage() {
                 <Brain size={15} strokeWidth={1.5} style={{ color: 'var(--text-secondary)' }} />
                 AI Provider
               </label>
-              <select
-                value={settings.ai_provider}
-                onChange={(e) => updateSettings({ ai_provider: e.target.value })}
-                className="apple-input w-full px-3.5 h-[30px] text-[13px]"
-              >
-                <option value="none">None</option>
-                <option value="ollama">Ollama</option>
-                <option value="claude">Claude</option>
-                <option value="openai">OpenAI</option>
-              </select>
+              <div className="apple-pill flex">
+                {[
+                  { value: "none", label: "None" },
+                  { value: "ollama", label: "Ollama" },
+                  { value: "claude", label: "Claude" },
+                  { value: "openai", label: "OpenAI" },
+                ].map(({ value, label }) => (
+                  <button
+                    key={value}
+                    onClick={() => {
+                      const defaultModel = AI_PROVIDER_DEFAULTS[value] ?? "";
+                      updateSettings({
+                        ai_provider: value,
+                        ai_model: defaultModel,
+                      });
+                    }}
+                    className={`apple-pill-item flex-1 flex items-center justify-center py-1.5 text-[11px] ${settings.ai_provider === value ? "active" : ""}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>AI provider used for auto-tagging and summarisation</p>
             </div>
+
+            {(settings.ai_provider === "claude" || settings.ai_provider === "openai") && (
+              <div className="space-y-2 pt-2" style={{ borderTop: '0.5px solid var(--separator)' }}>
+                <label className="flex items-center gap-2 text-[13px] font-medium" style={{ color: 'var(--text)' }}>
+                  <KeyRound size={15} strokeWidth={1.5} style={{ color: 'var(--text-secondary)' }} />
+                  API Key
+                </label>
+                <input
+                  type="password"
+                  value={apiKeyInput}
+                  onChange={(e) => {
+                    setApiKeyInput(e.target.value);
+                    if (e.target.value.length > 0) {
+                      updateSettings({ ai_api_key_configured: true });
+                    } else {
+                      updateSettings({ ai_api_key_configured: false });
+                    }
+                  }}
+                  placeholder={settings.ai_api_key_configured ? "••••••••••••••••" : "Enter API key…"}
+                  className="apple-input w-full px-3.5 h-[30px] text-[13px]"
+                />
+                {settings.ai_api_key_configured && apiKeyInput.length === 0 && (
+                  <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>API key is configured. Enter a new value to replace it.</p>
+                )}
+              </div>
+            )}
+
+            {settings.ai_provider === "ollama" && (
+              <div className="space-y-2 pt-2" style={{ borderTop: '0.5px solid var(--separator)' }}>
+                <label className="flex items-center gap-2 text-[13px] font-medium" style={{ color: 'var(--text)' }}>
+                  <Link size={15} strokeWidth={1.5} style={{ color: 'var(--text-secondary)' }} />
+                  Ollama Base URL
+                </label>
+                <input
+                  type="text"
+                  value={(settings as any).ollama_base_url ?? "http://localhost:11434"}
+                  onChange={(e) => updateSettings({ ollama_base_url: e.target.value } as any)}
+                  placeholder="http://localhost:11434"
+                  className="apple-input w-full px-3.5 h-[30px] text-[13px]"
+                />
+                <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>URL of your local Ollama instance</p>
+              </div>
+            )}
 
             {settings.ai_provider !== "none" && (
               <div className="space-y-2 pt-2" style={{ borderTop: '0.5px solid var(--separator)' }}>
@@ -166,9 +248,14 @@ export function SettingsPage() {
                   type="text"
                   value={settings.ai_model}
                   onChange={(e) => updateSettings({ ai_model: e.target.value })}
-                  placeholder="e.g. llama3, claude-sonnet-4-20250514"
+                  placeholder={AI_PROVIDER_DEFAULTS[settings.ai_provider] ?? ""}
                   className="apple-input w-full px-3.5 h-[30px] text-[13px]"
                 />
+                <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
+                  {settings.ai_provider === "claude" && "e.g. claude-sonnet-4-6, claude-opus-4-5"}
+                  {settings.ai_provider === "openai" && "e.g. gpt-4o, gpt-4o-mini"}
+                  {settings.ai_provider === "ollama" && "e.g. llama3.2, mistral, gemma3"}
+                </p>
               </div>
             )}
           </div>
