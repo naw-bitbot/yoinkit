@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Copy, Trash2, Upload, FileText } from "lucide-react";
+import { Copy, Trash2, Upload, FileText, Info } from "lucide-react";
 import { useClips } from "../hooks/useClips";
 import { useSettings } from "../hooks/useSettings";
 import { MarkdownPreview } from "../components/MarkdownPreview";
@@ -128,6 +128,11 @@ export function ClipperPage() {
           Clip
         </Button>
       </div>
+
+      <p className="text-xs text-[var(--text-muted)] flex items-center gap-1">
+        <Info className="w-3 h-3" />
+        Clips are saved locally for personal reference. Credit original creators when sharing.
+      </p>
 
       {/* Error */}
       {error && (

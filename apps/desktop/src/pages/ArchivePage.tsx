@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Trash2, ExternalLink, Archive as ArchiveIcon } from "lucide-react";
+import { Trash2, ExternalLink, Archive as ArchiveIcon, Info } from "lucide-react";
 import { useClips } from "../hooks/useClips";
 import { Button } from "@yoinkit/ui";
 import { UrlField } from "@yoinkit/ui";
@@ -110,6 +110,11 @@ export function ArchivePage() {
           Archive
         </Button>
       </div>
+
+      <p className="text-xs text-[var(--text-muted)] flex items-center gap-1">
+        <Info className="w-3 h-3" />
+        Archives are for personal offline access. Fair dealing applies to research and private study.
+      </p>
 
       {/* Error */}
       {error && (
