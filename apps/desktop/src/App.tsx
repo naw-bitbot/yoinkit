@@ -1,5 +1,5 @@
-import { useState, createContext, useContext } from "react";
-import { Download, Video, Music, ImageIcon, Zap, Settings, Sun, Moon, Monitor, Scissors, Archive, Search, type LucideProps } from "lucide-react";
+import { useState, useEffect, createContext, useContext } from "react";
+import { Download, Video, Music, ImageIcon, Zap, Settings, Sun, Moon, Monitor, Scissors, Archive, Search, Brain, LayoutGrid, type LucideProps } from "lucide-react";
 import { useTheme } from "./hooks/useTheme";
 
 import { SimplePage } from "./pages/SimplePage";
@@ -11,8 +11,11 @@ import { SettingsPage } from "./pages/SettingsPage";
 import { ClipperPage } from "./pages/ClipperPage";
 import { ArchivePage } from "./pages/ArchivePage";
 import { SearchPage } from "./pages/SearchPage";
+import { AIPage } from "./pages/AIPage";
+import { LegalConsent } from "./components/LegalConsent";
+import { api } from "./lib/tauri";
 
-type Page = "simple" | "video" | "audio" | "images" | "clipper" | "archive" | "search" | "pro" | "settings";
+type Page = "yoinks" | "gallery" | "video" | "audio" | "images" | "clipper" | "archive" | "search" | "ai" | "pro" | "settings";
 type Theme = "light" | "dark" | "system";
 
 interface ThemeContextType {
@@ -30,20 +33,40 @@ export const ThemeContext = createContext<ThemeContextType>({
 export const useThemeContext = () => useContext(ThemeContext);
 
 const NAV_ITEMS: { id: Page; label: string; icon: React.ComponentType<LucideProps> }[] = [
-  { id: "simple", label: "Downloads", icon: Download },
+  { id: "yoinks", label: "Yoinks", icon: Download },
+  { id: "gallery", label: "Gallery", icon: LayoutGrid },
   { id: "video", label: "Video", icon: Video },
   { id: "audio", label: "Audio", icon: Music },
   { id: "images", label: "Images", icon: ImageIcon },
   { id: "clipper", label: "Clipper", icon: Scissors },
   { id: "archive", label: "Archive", icon: Archive },
   { id: "search", label: "Search", icon: Search },
+  { id: "ai", label: "Ask", icon: Brain },
   { id: "pro", label: "Pro", icon: Zap },
   { id: "settings", label: "Settings", icon: Settings },
 ];
 
 function App() {
-  const [page, setPage] = useState<Page>("simple");
+  const [page, setPage] = useState<Page>("yoinks");
   const themeState = useTheme();
+  const [consentChecked, setConsentChecked] = useState(false);
+  const [hasConsent, setHasConsent] = useState(true); // default true to avoid flash
+
+  useEffect(() => {
+    api.checkConsent().then(ok => {
+      setHasConsent(ok);
+      setConsentChecked(true);
+    }).catch(() => setConsentChecked(true));
+  }, []);
+
+  const handleAcceptConsent = async () => {
+    await api.acceptConsent();
+    setHasConsent(true);
+  };
+
+  if (consentChecked && !hasConsent) {
+    return <LegalConsent onAccept={handleAcceptConsent} />;
+  }
 
   return (
     <ThemeContext.Provider value={themeState}>
@@ -98,19 +121,21 @@ function App() {
                 </button>
               ))}
             </div>
-            <p className="text-[11px] text-center mt-1.5" style={{ color: 'var(--text-tertiary)' }}>v0.2.2</p>
+            <p className="text-[11px] text-center mt-1.5" style={{ color: 'var(--text-tertiary)' }}>v0.3.0</p>
           </div>
         </nav>
 
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto px-6 py-5">
-          {page === "simple" && <SimplePage />}
+          {page === "yoinks" && <SimplePage />}
+          {page === "gallery" && <div className="text-center py-20" style={{ color: 'var(--text-secondary)' }}>Gallery coming soon</div>}
           {page === "video" && <VideoPage />}
           {page === "audio" && <AudioPage />}
           {page === "images" && <ImagesPage />}
           {page === "clipper" && <ClipperPage />}
           {page === "archive" && <ArchivePage />}
           {page === "search" && <SearchPage />}
+          {page === "ai" && <AIPage />}
           {page === "pro" && <ProPage />}
           {page === "settings" && <SettingsPage />}
         </main>
