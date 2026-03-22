@@ -5,7 +5,6 @@ import { usePro } from "../hooks/usePro";
 import { useSettings } from "../hooks/useSettings";
 import { GalleryItemCard } from "../components/GalleryItem";
 import { GalleryToolbar } from "../components/GalleryToolbar";
-import { api } from "../lib/tauri";
 
 const FREE_LIMIT = 50;
 
