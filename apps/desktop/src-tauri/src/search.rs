@@ -4,7 +4,7 @@ use tantivy::{
     doc,
     query::QueryParser,
     schema::*,
-    Index, IndexReader, IndexWriter,
+    Index, IndexReader, IndexWriter, TantivyDocument,
 };
 use std::sync::Mutex;
 use std::path::Path;
@@ -155,11 +155,11 @@ impl SearchEngine {
 
         let mut results = Vec::new();
         for (score, doc_address) in top_docs {
-            let doc = searcher.doc(doc_address).map_err(|e| e.to_string())?;
+            let doc: TantivyDocument = searcher.doc(doc_address).map_err(|e| e.to_string())?;
 
             let get_text = |field: Field| -> String {
                 doc.get_first(field)
-                    .and_then(|v: &tantivy::schema::OwnedValue| v.as_text())
+                    .and_then(|v| v.as_str())
                     .unwrap_or("")
                     .to_string()
             };
