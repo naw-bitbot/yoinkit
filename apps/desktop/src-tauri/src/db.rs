@@ -112,6 +112,9 @@ impl Database {
         if current_version < 3 {
             Self::migrate_v3(&conn)?;
         }
+        if current_version < 4 {
+            Self::migrate_v4(&conn)?;
+        }
 
         let db = Self { conn: Mutex::new(conn) };
         db.init_default_settings()?;
@@ -142,6 +145,9 @@ impl Database {
         }
         if current_version < 3 {
             Self::migrate_v3(&conn)?;
+        }
+        if current_version < 4 {
+            Self::migrate_v4(&conn)?;
         }
 
         let db = Self { conn: Mutex::new(conn) };
@@ -258,6 +264,54 @@ impl Database {
         Ok(())
     }
 
+    fn migrate_v4(conn: &Connection) -> Result<()> {
+        conn.execute_batch("
+            CREATE TABLE IF NOT EXISTS collections (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                color TEXT,
+                position INTEGER DEFAULT 0,
+                created_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS gallery_meta (
+                item_id TEXT NOT NULL,
+                item_type TEXT NOT NULL,
+                collection_id TEXT,
+                tags TEXT DEFAULT '',
+                flag TEXT DEFAULT '',
+                position INTEGER DEFAULT 0,
+                added_at TEXT NOT NULL,
+                PRIMARY KEY (item_id, item_type),
+                FOREIGN KEY (collection_id) REFERENCES collections(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS smart_folders (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                rules_json TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS legal_consent (
+                id INTEGER PRIMARY KEY,
+                tos_version TEXT NOT NULL,
+                accepted_at TEXT NOT NULL
+            );
+
+            INSERT OR IGNORE INTO gallery_meta (item_id, item_type, added_at)
+                SELECT id, 'download', created_at FROM downloads;
+
+            INSERT OR IGNORE INTO gallery_meta (item_id, item_type, added_at)
+                SELECT id, 'clip', created_at FROM clips;
+        ")?;
+        conn.execute(
+            "INSERT OR IGNORE INTO schema_version (version, applied_at) VALUES (4, datetime('now'))",
+            [],
+        )?;
+        Ok(())
+    }
+
     fn init_default_settings(&self) -> Result<()> {
         let conn = self.conn.lock().unwrap();
         let defaults = vec![
@@ -279,6 +333,9 @@ impl Database {
             ("ai_model", "".to_string()),
             ("clip_on_download", "false".to_string()),
             ("bandwidth_limit", "0".to_string()),
+            ("license_key", "".to_string()),
+            ("pro_since", "".to_string()),
+            ("gallery_view", "grid".to_string()),
         ];
         for (key, value) in defaults {
             conn.execute(
