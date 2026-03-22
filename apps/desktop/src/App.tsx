@@ -56,12 +56,16 @@ function App() {
     api.checkConsent().then(ok => {
       setHasConsent(ok);
       setConsentChecked(true);
-    }).catch(() => setConsentChecked(true));
+    }).catch(() => setConsentChecked(true)); // fail-open: if backend errors, allow app access
   }, []);
 
   const handleAcceptConsent = async () => {
-    await api.acceptConsent();
-    setHasConsent(true);
+    try {
+      await api.acceptConsent();
+      setHasConsent(true);
+    } catch (e) {
+      console.error("Failed to record consent:", e);
+    }
   };
 
   if (consentChecked && !hasConsent) {
