@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useDownloads } from "../hooks/useDownloads";
+import { usePro } from "../hooks/usePro";
 import { DownloadList } from "../components/DownloadList";
+import { ProBadge } from "../components/ProBadge";
 import { Button, UrlField } from "@yoinkit/ui";
 import { Info, Subtitles, FileText } from "lucide-react";
 import { api } from "../lib/tauri";
@@ -25,6 +27,7 @@ interface FormatInfo {
 
 export function VideoPage() {
   const { downloads, startVideoDownload, pauseDownload, resumeDownload, cancelDownload, deleteDownload } = useDownloads();
+  const { isPro } = usePro();
   const [url, setUrl] = useState("");
   const [videoInfo, setVideoInfo] = useState<VideoInfo | null>(null);
   const [loading, setLoading] = useState(false);
@@ -131,15 +134,23 @@ export function VideoPage() {
           </Button>
         </div>
 
+        <p className="text-xs text-[var(--text-muted)] flex items-center gap-1">
+          <Info className="w-3 h-3" />
+          Ensure you have permission to download this content.
+        </p>
+
         {/* Quality — Apple segmented control */}
         <div className="flex items-center gap-3">
           <span className="text-[11px] font-medium uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Quality</span>
           <div className="apple-pill flex">
-            {qualities.map(q => (
-              <button key={q} onClick={() => setQuality(q)} className={`apple-pill-item ${quality === q ? 'active' : ''}`}>
-                {q}
-              </button>
-            ))}
+            {qualities.map(q => {
+              const locked = !isPro && (q === "4k" || q === "1080p");
+              return (
+                <button key={q} onClick={() => !locked && setQuality(q)} disabled={locked} className={`apple-pill-item ${quality === q ? 'active' : ''} ${locked ? 'opacity-40 cursor-not-allowed' : ''}`}>
+                  {q}{locked && <ProBadge />}
+                </button>
+              );
+            })}
           </div>
         </div>
 
