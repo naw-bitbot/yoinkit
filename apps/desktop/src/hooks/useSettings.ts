@@ -7,6 +7,9 @@ const DEFAULT_SETTINGS: AppSettings = {
   max_concurrent: 3,
   pro_unlocked: false,
   bandwidth_limit: 0,
+  license_key: "",
+  pro_since: "",
+  gallery_view: "grid",
 } as AppSettings;
 
 export function useSettings() {
