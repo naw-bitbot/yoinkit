@@ -199,7 +199,7 @@ When Pro activates:
 | Online validation | Once on activation only. Works offline forever after |
 | Device limit | 3 activations per key (desktop, laptop, second Mac) |
 | No subscription check | One-time validation, no recurring phone-home |
-| Grace on failure | If validation API is down, allow 7-day grace period |
+| Grace on failure | Initial activation only: if LemonSqueezy API is unreachable, store the key locally and retry on next app launch for up to 7 days. After successful validation, no further network calls are ever made. This is NOT a recurring check — once validated, Pro is permanent and fully offline. |
 | Key storage | Stored locally in SQLite settings, never transmitted again |
 
 ### 5.4 Pricing Strategy
@@ -208,8 +208,8 @@ When Pro activates:
 |---|---|
 | GBP 19 | Standard price |
 | GBP 14 | Launch discount (first 30 days or first 500 licenses) |
-| GBP 9 | "Friend of Yoinkit" referral code (buyer gets GBP 10 off) |
-| Free Pro | Open source contributors who submit merged PRs |
+| GBP 9 | "Friend of Yoinkit" referral code (buyer gets GBP 10 off). Implemented as LemonSqueezy discount codes — no custom referral tracking system needed. Codes distributed manually via social media, community, or direct sharing. |
+| Free Pro | Open source contributors who submit merged PRs. Manual process — generate a free license key via LemonSqueezy dashboard. |
 
 ---
 
@@ -316,16 +316,37 @@ Legal positioning relative to competitors:
 - `pro_unlocked: bool` already exists in AppSettings / SQLite settings
 - Add `license_key: Option<String>` and `pro_since: Option<String>` to settings
 - Pro gate check: utility function `is_pro(&settings) -> bool` used in Tauri commands and frontend
-- Frontend: `usePro()` hook reads pro status from settings, gates UI accordingly
+- Frontend: `usePro()` hook — convenience wrapper around `useSettings()`:
+  - Returns `{ isPro: bool, proSince: Option<String>, loading: bool }`
+  - Reads `settings.pro_unlocked` as the source of truth
+  - No grace period logic — see Section 5.3 clarification
 
 ### 8.2 Gallery Data Model
 
-Gallery items are a unified view across existing tables (downloads, clips, archives). Implementation options:
+Gallery items are a unified view across existing tables. Note: there is no separate `archives` table — archives are stored as clips with `source_type = 'archive'` in the `clips` table. Similarly, scraped images that are downloaded go through the download manager and are stored in the `downloads` table.
 
-- **Option A (recommended):** Gallery is a virtual view — queries downloads + clips + archives, unions results, applies gallery-specific metadata (collections, tags, flags) from a `gallery_items` join table
-- **Option B:** Separate `gallery` table with denormalised data copied on yoink
+The gallery therefore unions two tables:
+- `downloads` — all file downloads (including scraped images)
+- `clips` — all clips (including archives where `source_type = 'archive'`)
 
-### 8.3 Database Additions
+**Implementation (recommended):** Gallery is a virtual view — queries `downloads` UNION `clips`, applies gallery-specific metadata (collections, tags, flags) via a `gallery_meta` join table. The `item_type` in `gallery_meta` maps to the source: `'download'` or `'clip'`.
+
+The gallery page renders items differently based on type:
+- `download` items: file type icon, video thumbnail where available
+- `clip` with `source_type = 'article'|'page'`: article preview with title + snippet
+- `clip` with `source_type = 'archive'`: page snapshot with favicon + title
+
+### 8.3 Navigation Rename
+
+The internal page ID changes from `"simple"` to `"yoinks"` in the `Page` type union and `NAV_ITEMS` array. The label changes from "Downloads" to "Yoinks". A new `"gallery"` page ID is added. No deep linking or persisted page preferences exist currently, so this is a clean rename with no migration concerns.
+
+```typescript
+type Page = "yoinks" | "gallery" | "video" | "audio" | "images" | "clipper" | "archive" | "search" | "ai" | "pro" | "settings"
+```
+
+### 8.4 Database Migration (v4)
+
+All new tables and settings are added in `migrate_v4()`, called from `Database::new()` after `migrate_v3()`.
 
 ```sql
 -- Gallery organisation (Pro)
@@ -333,27 +354,30 @@ CREATE TABLE IF NOT EXISTS collections (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     color TEXT,
+    position INTEGER DEFAULT 0,
     created_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS gallery_meta (
-    item_id TEXT PRIMARY KEY,
-    item_type TEXT NOT NULL,  -- 'download', 'clip', 'archive'
+    item_id TEXT NOT NULL,
+    item_type TEXT NOT NULL,  -- 'download' or 'clip'
     collection_id TEXT,
     tags TEXT DEFAULT '',
     flag TEXT DEFAULT '',     -- 'star', 'pin', 'archive', or color hex
+    position INTEGER DEFAULT 0,
     added_at TEXT NOT NULL,
+    PRIMARY KEY (item_id, item_type),
     FOREIGN KEY (collection_id) REFERENCES collections(id)
 );
 
 CREATE TABLE IF NOT EXISTS smart_folders (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
-    rules_json TEXT NOT NULL,  -- JSON filter rules
+    rules_json TEXT NOT NULL,
     created_at TEXT NOT NULL
 );
 
--- Legal
+-- Legal consent (source of truth for ToS acceptance)
 CREATE TABLE IF NOT EXISTS legal_consent (
     id INTEGER PRIMARY KEY,
     tos_version TEXT NOT NULL,
@@ -361,12 +385,58 @@ CREATE TABLE IF NOT EXISTS legal_consent (
 );
 ```
 
-### 8.4 New Settings Fields
+Smart folder `rules_json` schema:
+
+```json
+{
+  "match": "all",
+  "rules": [
+    { "field": "item_type", "op": "eq", "value": "clip" },
+    { "field": "created_at", "op": "within", "value": "7d" },
+    { "field": "tags", "op": "contains", "value": "work" },
+    { "field": "flag", "op": "eq", "value": "star" }
+  ]
+}
+```
+
+Fields: `item_type`, `tags`, `flag`, `collection_id`, `created_at`, `source_type` (for clips).
+Operators: `eq`, `neq`, `contains`, `within` (time period: `7d`, `30d`, `90d`).
+Match: `all` (AND) or `any` (OR).
+
+### 8.5 New Settings Fields
 
 ```
 license_key: Option<String>
 pro_since: Option<String>
-tos_accepted: bool
-tos_accepted_at: Option<String>
 gallery_view: String  -- 'grid' or 'list'
 ```
+
+Note: ToS acceptance is tracked in the `legal_consent` table (not in settings) because it needs to store the version agreed to and support re-consent if the ToS version changes. The app checks `legal_consent` on startup — if no row exists or the latest `tos_version` is older than the current version, the welcome/consent screen is shown.
+
+### 8.6 Multi-Threaded Downloads
+
+Multi-threaded downloads are already partially implemented in `wget.rs`:
+- `check_range_support(url)` — HEAD request checking `Accept-Ranges` header and `Content-Length`
+- `download_chunk(url, start, end, output_path)` — wget with `--header "Range: bytes=start-end"`
+- `concatenate_chunks(chunk_paths, output_path)` — merges chunks and cleans up temp files
+
+For Pro gating: the `download_file` command checks `is_pro(&settings)`. If Pro, it calls `check_range_support()` first — if the server supports ranges, it splits into N chunks (default 4, configurable) and downloads in parallel via `tokio::spawn`. If not Pro or server does not support ranges, it falls back to single-thread wget.
+
+This is a Rust-orchestrated approach using wget as the download backend for each chunk. No dependency on aria2 or other external tools.
+
+### 8.7 Existing Features — Gating Decisions
+
+Features already implemented that are not explicitly in the free/pro tables:
+
+| Feature | Tier | Rationale |
+|---|---|---|
+| Obsidian vault export | Free | Part of the clipper hook — keeps users engaged |
+| NotebookLM export (single) | Free | Single export is a taste of the feature |
+| NotebookLM export (batch) | Pro | Batch operations are Pro |
+| Transcript structuring | Free | AI features stay free to hook users |
+| Link status checking | Free | Utility feature, low upgrade value |
+| Weekly digest generation | Free | AI feature, keeps users coming back |
+
+### 8.8 Scheduling — Status Note
+
+Download scheduling and site change monitoring are already implemented in the codebase (`scheduler.rs`, `monitor.rs`, `schedules` and `monitors` tables). The original v1 design spec deferred these to v2 — they were built during the v2 features phase. This Pro spec gates them behind Pro, which is their shipping state. The original spec should be considered superseded for scheduling-related sections.
