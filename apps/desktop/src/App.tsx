@@ -12,6 +12,7 @@ import { ClipperPage } from "./pages/ClipperPage";
 import { ArchivePage } from "./pages/ArchivePage";
 import { SearchPage } from "./pages/SearchPage";
 import { AIPage } from "./pages/AIPage";
+import { GalleryPage } from "./pages/GalleryPage";
 import { LegalConsent } from "./components/LegalConsent";
 import { api } from "./lib/tauri";
 
@@ -132,7 +133,7 @@ function App() {
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto px-6 py-5">
           {page === "yoinks" && <SimplePage />}
-          {page === "gallery" && <div className="text-center py-20" style={{ color: 'var(--text-secondary)' }}>Gallery coming soon</div>}
+          {page === "gallery" && <GalleryPage onNavigate={(p) => setPage(p as Page)} />}
           {page === "video" && <VideoPage />}
           {page === "audio" && <AudioPage />}
           {page === "images" && <ImagesPage />}
