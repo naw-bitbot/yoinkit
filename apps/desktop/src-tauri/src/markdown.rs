@@ -106,7 +106,7 @@ fn convert_children(el: ElementRef<'_>, state: &mut ConversionState, ctx: Contex
     for child in el.children() {
         match child.value() {
             Node::Text(text) => {
-                let t = text.as_ref();
+                let t: &str = text.as_ref();
                 if ctx == Context::Block && t.trim().is_empty() {
                     continue;
                 }

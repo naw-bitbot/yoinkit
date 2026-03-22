@@ -688,7 +688,7 @@ pub fn chat_history(limit: Option<usize>, state: State<'_, AppState>) -> Result<
 
 #[tauri::command]
 pub fn chat_clear(state: State<'_, AppState>) -> Result<(), String> {
-    state.db.clear_chat_messages().map_err(|e| format!("DB error: {}", e))
+    state.db.clear_chat_history().map_err(|e| format!("DB error: {}", e))
 }
 
 #[tauri::command]

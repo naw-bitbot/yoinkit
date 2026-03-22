@@ -227,10 +227,9 @@ fn serialize_children(el: scraper::ElementRef<'_>, strip_tags: &[&str], out: &mu
 
                 // Keep only safe / meaningful attributes.
                 for (attr_name, attr_val) in elem.attrs() {
-                    let an = attr_name.local.as_ref();
-                    if should_keep_attr(an, &tag) {
+                    if should_keep_attr(attr_name, &tag) {
                         out.push(' ');
-                        out.push_str(an);
+                        out.push_str(attr_name);
                         out.push_str("=\"");
                         out.push_str(&escape_attr(attr_val));
                         out.push('"');

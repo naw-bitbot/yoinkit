@@ -518,7 +518,7 @@ impl Database {
                 sources: row.get(3)?, created_at: row.get(4)?,
             })
         })?;
-        let mut messages: Vec<ChatMessage> = rows.collect::<Result<Vec<_>>>()?;
+        let mut messages: Vec<ChatMessage> = rows.collect::<rusqlite::Result<Vec<_>>>()?;
         messages.reverse();
         Ok(messages)
     }

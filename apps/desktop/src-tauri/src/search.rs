@@ -69,7 +69,7 @@ impl SearchEngine {
     }
 
     pub fn index_clip(&self, clip: &crate::db::Clip) -> Result<(), String> {
-        let writer = self.writer.lock().unwrap();
+        let mut writer = self.writer.lock().unwrap();
         let id = self.schema.get_field("id").unwrap();
         let content_type = self.schema.get_field("content_type").unwrap();
         let title_field = self.schema.get_field("title").unwrap();
@@ -98,7 +98,7 @@ impl SearchEngine {
     }
 
     pub fn index_download(&self, download: &crate::db::Download) -> Result<(), String> {
-        let writer = self.writer.lock().unwrap();
+        let mut writer = self.writer.lock().unwrap();
         let id = self.schema.get_field("id").unwrap();
         let content_type = self.schema.get_field("content_type").unwrap();
         let title_field = self.schema.get_field("title").unwrap();
@@ -159,7 +159,7 @@ impl SearchEngine {
 
             let get_text = |field: Field| -> String {
                 doc.get_first(field)
-                    .and_then(|v| v.as_text())
+                    .and_then(|v: &tantivy::schema::OwnedValue| v.as_text())
                     .unwrap_or("")
                     .to_string()
             };
@@ -188,7 +188,7 @@ impl SearchEngine {
 
     pub fn rebuild_index(&self, clips: &[crate::db::Clip], downloads: &[crate::db::Download]) -> Result<(), String> {
         {
-            let writer = self.writer.lock().unwrap();
+            let mut writer = self.writer.lock().unwrap();
             writer.delete_all_documents().map_err(|e| e.to_string())?;
             writer.commit().map_err(|e| e.to_string())?;
         }

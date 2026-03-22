@@ -56,7 +56,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .manage(app_state.as_ref().clone())
-        .setup(|app| {
+        .setup(move |app| {
             // Set up tray
             tray::setup_tray(app)?;
 
