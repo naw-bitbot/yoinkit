@@ -5,6 +5,7 @@ mod auth;
 mod commands;
 mod db;
 mod download_manager;
+mod license;
 mod markdown;
 mod scheduler;
 mod search;
