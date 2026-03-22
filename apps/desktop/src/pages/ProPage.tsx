@@ -1,91 +1,124 @@
-import { useState } from "react";
-import { useDownloads } from "../hooks/useDownloads";
+import React, { useState } from "react";
+import { Crown, Zap, Video, Music, LayoutGrid, Layers, Gauge, Calendar, Bot, Terminal, Search, CheckCircle2 } from "lucide-react";
+import { usePro } from "../hooks/usePro";
 import { useSettings } from "../hooks/useSettings";
-import { WgetFlags } from "../lib/tauri";
-import { UrlField, Button } from "@yoinkit/ui";
-import { CommandBuilder } from "../components/CommandBuilder";
-import { CommandPreview } from "../components/CommandPreview";
-import { PresetManager } from "../components/PresetManager";
-import { BatchInput } from "../components/BatchInput";
-import { DownloadList } from "../components/DownloadList";
-import { Lock, Crown } from "lucide-react";
-
-type ProTab = "single" | "batch";
+import { api } from "../lib/tauri";
+import { ConfettiCelebration } from "../components/ConfettiCelebration";
 
 export function ProPage() {
-  const { downloads, startDownload, pauseDownload, resumeDownload, cancelDownload, deleteDownload } = useDownloads();
+  const { isPro, proSince } = usePro();
   const { settings } = useSettings();
-  const [url, setUrl] = useState("");
-  const [flags, setFlags] = useState<WgetFlags>({});
-  const [loading, setLoading] = useState(false);
-  const [tab, setTab] = useState<ProTab>("single");
+  const [licenseKey, setLicenseKey] = useState("");
+  const [activating, setActivating] = useState(false);
+  const [error, setError] = useState("");
+  const [showConfetti, setShowConfetti] = useState(false);
 
-  if (!settings.pro_unlocked) {
+  const handleActivate = async () => {
+    if (!licenseKey.trim()) return;
+    setActivating(true);
+    setError("");
+    try {
+      const result = await api.activateLicense(licenseKey.trim());
+      if (result.success) {
+        setShowConfetti(true);
+      } else {
+        setError(result.error || "Activation failed");
+      }
+    } catch (e: any) {
+      setError(e.toString());
+    } finally {
+      setActivating(false);
+    }
+  };
+
+  if (isPro) {
+    // Pro dashboard
     return (
-      <div className="flex flex-col items-center justify-center py-24 space-y-5">
-        <div className="w-[56px] h-[56px] rounded-[12px] flex items-center justify-center glass" style={{ border: '0.5px solid var(--border-strong)' }}>
-          <Lock size={22} strokeWidth={1.5} style={{ color: 'var(--text-tertiary)' }} />
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-[color-mix(in_srgb,var(--brand)_10%,transparent)] flex items-center justify-center">
+            <Crown className="w-5 h-5 text-[var(--brand)]" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold">Pro</h1>
+            {proSince && <p className="text-sm text-[var(--text-muted)]">Member since {new Date(proSince).toLocaleDateString()}</p>}
+          </div>
         </div>
-        <div className="text-center">
-          <h2 className="text-[20px] font-bold" style={{ color: 'var(--text)' }}>Pro Mode</h2>
-          <p className="text-[13px] mt-2 max-w-sm" style={{ color: 'var(--text-secondary)' }}>
-            Unlock the full power of Wget with the visual command builder, presets, batch downloads, and more.
-          </p>
-        </div>
-        <Button size="lg">
-          <Crown size={16} strokeWidth={1.5} />
-          Upgrade to Pro
-        </Button>
+        <p className="text-[var(--text-secondary)]">All Pro features are unlocked. Enjoy the full toolkit.</p>
       </div>
     );
   }
 
-  const handleSingleDownload = async () => {
-    if (!url.trim()) return;
-    setLoading(true);
-    try { await startDownload(url.trim(), flags); setUrl(""); }
-    catch (err) { console.error("Download failed:", err); }
-    finally { setLoading(false); }
-  };
-
-  const handleBatchDownload = async (urls: string[]) => {
-    setLoading(true);
-    try { for (const u of urls) await startDownload(u, flags); }
-    catch (err) { console.error("Batch download failed:", err); }
-    finally { setLoading(false); }
-  };
+  // Free state — shop window
+  const features = [
+    { icon: Video, title: "4K & 1080p Video", desc: "Download in full quality, any format" },
+    { icon: Music, title: "Lossless Audio", desc: "FLAC, WAV, AAC, Opus, 320kbps" },
+    { icon: LayoutGrid, title: "Unlimited Gallery", desc: "Collections, tags, flags, smart folders" },
+    { icon: Layers, title: "Batch Operations", desc: "Download, clip, and export in bulk" },
+    { icon: Gauge, title: "Multi-Thread Downloads", desc: "Parallel chunked downloading" },
+    { icon: Calendar, title: "Scheduling", desc: "Download scheduler & site monitoring" },
+    { icon: Bot, title: "MCP Server", desc: "Claude Desktop integration" },
+    { icon: Terminal, title: "Wget Builder", desc: "Visual command builder & presets" },
+    { icon: Search, title: "Advanced Search", desc: "Regex, filters, saved searches" },
+  ];
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-[20px] font-bold tracking-tight" style={{ color: 'var(--text)' }}>Pro</h2>
-          <p className="text-[13px] mt-1" style={{ color: 'var(--text-secondary)' }}>Full Wget command builder</p>
+      {showConfetti && <ConfettiCelebration />}
+
+      {/* Hero */}
+      <div className="text-center space-y-3 py-8">
+        <div className="w-16 h-16 rounded-2xl bg-[color-mix(in_srgb,var(--brand)_10%,transparent)] flex items-center justify-center mx-auto">
+          <Zap className="w-8 h-8 text-[var(--brand)]" />
         </div>
-        <div className="apple-pill flex">
-          <button onClick={() => setTab("single")} className={`apple-pill-item ${tab === "single" ? 'active' : ''}`}>Single</button>
-          <button onClick={() => setTab("batch")} className={`apple-pill-item ${tab === "batch" ? 'active' : ''}`}>Batch</button>
-        </div>
+        <h1 className="text-3xl font-bold">Unlock the full toolkit</h1>
+        <p className="text-[var(--text-secondary)]">£19 one-time purchase · Yours forever</p>
       </div>
 
-      {tab === "single" ? (
+      {/* Feature grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {features.map(({ icon: Icon, title, desc }) => (
+          <div key={title} className="p-4 rounded-xl bg-[var(--surface)] space-y-2">
+            <Icon className="w-5 h-5 text-[var(--brand)]" />
+            <p className="font-medium text-sm">{title}</p>
+            <p className="text-xs text-[var(--text-muted)]">{desc}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* CTA */}
+      <div className="text-center space-y-4 py-4">
+        <a
+          href="https://yoinkit.app/pro"
+          target="_blank"
+          className="inline-flex items-center gap-2 px-8 py-3 rounded-xl bg-[var(--brand)] text-white font-medium hover:opacity-90 transition-opacity"
+        >
+          <Crown className="w-4 h-4" /> Upgrade to Pro · £19
+        </a>
+        <p className="text-xs text-[var(--text-muted)]">One-time purchase. No subscription. Ever.</p>
+      </div>
+
+      {/* License key input */}
+      <div className="bg-[var(--surface)] rounded-xl p-5 space-y-3">
+        <p className="text-sm font-medium">Already have a license key?</p>
         <div className="flex gap-2">
-          <UrlField value={url} onChange={setUrl} onSubmit={handleSingleDownload} className="flex-1" />
-          <Button onClick={handleSingleDownload} loading={loading} disabled={!url.trim()} size="lg">Yoink!</Button>
+          <input
+            type="text"
+            value={licenseKey}
+            onChange={(e) => setLicenseKey(e.target.value)}
+            placeholder="Paste your license key"
+            className="flex-1 px-3 py-2 rounded-lg bg-[var(--bg)] border border-[var(--border)] text-sm"
+          />
+          <button
+            onClick={handleActivate}
+            disabled={activating || !licenseKey.trim()}
+            className="px-4 py-2 rounded-lg bg-[var(--brand)] text-white text-sm font-medium disabled:opacity-40"
+          >
+            {activating ? "Activating..." : "Activate"}
+          </button>
         </div>
-      ) : (
-        <BatchInput onSubmit={handleBatchDownload} loading={loading} />
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-4">
-          <CommandBuilder flags={flags} onChange={setFlags} />
-          <CommandPreview url={url} flags={flags} savePath={settings.default_save_path} />
-        </div>
-        <div><PresetManager currentFlags={flags} onLoadPreset={setFlags} /></div>
+        {error && <p className="text-xs text-red-400">{error}</p>}
       </div>
-
-      <DownloadList downloads={downloads} onPause={pauseDownload} onResume={resumeDownload} onCancel={cancelDownload} onDelete={deleteDownload} />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useSettings } from "../hooks/useSettings";
 import { Button } from "@yoinkit/ui";
-import { FolderOpen, MousePointer, Layers, Crown, Loader2, Sun, Moon, Monitor, NotebookPen, Brain, KeyRound, Link, Gauge } from "lucide-react";
+import { FolderOpen, MousePointer, Layers, Crown, Loader2, Sun, Moon, Monitor, NotebookPen, Brain, KeyRound, Link, Gauge, CheckCircle2 } from "lucide-react";
 import { useThemeContext } from "../App";
 
 const AI_PROVIDER_DEFAULTS: Record<string, string> = {
@@ -279,6 +279,33 @@ export function SettingsPage() {
             </div>
             {!settings.pro_unlocked && <Button size="sm">Upgrade</Button>}
           </div>
+          </div>
+        </div>
+
+        {/* Pro License */}
+        <div className="glass-card p-5 space-y-4">
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-[var(--text-muted)]">Pro License</h3>
+          {settings.pro_unlocked ? (
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-green-400" />
+              <span className="text-sm">Pro Unlocked</span>
+              {settings.pro_since && <span className="text-xs text-[var(--text-muted)]">since {new Date(settings.pro_since).toLocaleDateString()}</span>}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-[var(--text-muted)]">Free Plan</span>
+            </div>
+          )}
+        </div>
+
+        {/* Legal */}
+        <div className="glass-card p-5 space-y-3">
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-[var(--text-muted)]">Legal</h3>
+          <div className="space-y-2">
+            <a href="https://yoinkit.app/terms" target="_blank" className="block text-sm text-[var(--brand)] hover:underline">Terms of Use</a>
+            <a href="https://yoinkit.app/privacy" target="_blank" className="block text-sm text-[var(--brand)] hover:underline">Privacy Policy</a>
+            <a href="https://yoinkit.app/dmca" target="_blank" className="block text-sm text-[var(--brand)] hover:underline">DMCA Policy</a>
+            <p className="text-xs text-[var(--text-muted)]">copyright@yoinkit.app</p>
           </div>
         </div>
       </div>

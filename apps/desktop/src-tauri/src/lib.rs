@@ -5,6 +5,7 @@ mod auth;
 mod commands;
 mod db;
 mod download_manager;
+mod license;
 mod markdown;
 mod scheduler;
 mod search;
@@ -125,6 +126,15 @@ pub fn run() {
             commands::delete_monitor,
             commands::check_monitor,
             commands::generate_digest,
+            commands::list_gallery,
+            commands::gallery_count,
+            commands::update_gallery_item,
+            commands::create_collection,
+            commands::list_collections_cmd,
+            commands::delete_collection_cmd,
+            commands::activate_license,
+            commands::check_consent,
+            commands::accept_consent,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

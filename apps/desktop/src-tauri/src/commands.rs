@@ -67,7 +67,9 @@ pub fn list_downloads(state: State<'_, AppState>) -> Result<Vec<crate::db::Downl
 
 #[tauri::command]
 pub fn delete_download(state: State<'_, AppState>, id: String) -> Result<(), String> {
-    state.download_manager.delete_download(&id)
+    state.download_manager.delete_download(&id)?;
+    let _ = state.db.delete_gallery_meta(&id, "download");
+    Ok(())
 }
 
 #[tauri::command]
@@ -173,6 +175,16 @@ pub async fn start_video_download(
     sub_lang: Option<String>,
     sub_format: Option<String>,
 ) -> Result<String, String> {
+    // Pro gating for high-quality video
+    let app_settings = crate::settings::get_settings(&state.db)?;
+    if !app_settings.pro_unlocked {
+        if let Some(ref q) = quality {
+            if q == "4k" || q == "1080p" {
+                return Err("Pro required for 1080p and 4K quality".to_string());
+            }
+        }
+    }
+
     let save_dir = save_path.unwrap_or_else(|| {
         state.db.get_setting("default_save_path")
             .ok()
@@ -276,6 +288,21 @@ pub async fn start_audio_download(
     sub_lang: Option<String>,
     sub_format: Option<String>,
 ) -> Result<String, String> {
+    // Pro gating for premium audio formats/quality
+    let app_settings = crate::settings::get_settings(&state.db)?;
+    if !app_settings.pro_unlocked {
+        if let Some(ref f) = format {
+            if f != "mp3" {
+                return Err("Pro required for FLAC, WAV, AAC, and Opus formats".to_string());
+            }
+        }
+        if let Some(ref q) = quality {
+            if q == "0" {
+                return Err("Pro required for 320kbps quality".to_string());
+            }
+        }
+    }
+
     start_video_download(state, url, format, quality, true, save_path, write_subs, sub_lang, sub_format).await
 }
 
@@ -498,7 +525,9 @@ pub fn get_clip(id: String, state: State<'_, AppState>) -> Result<Option<Clip>, 
 
 #[tauri::command]
 pub fn delete_clip(id: String, state: State<'_, AppState>) -> Result<(), String> {
-    state.db.delete_clip(&id).map_err(|e| format!("DB error: {}", e))
+    state.db.delete_clip(&id).map_err(|e| format!("DB error: {}", e))?;
+    let _ = state.db.delete_gallery_meta(&id, "clip");
+    Ok(())
 }
 
 #[tauri::command]
@@ -738,6 +767,11 @@ pub fn export_batch_notebooklm(ids: Vec<String>, export_dir: String, batch_name:
 
 #[tauri::command]
 pub fn create_monitor(url: String, state: State<'_, AppState>) -> Result<String, String> {
+    let app_settings = crate::settings::get_settings(&state.db)?;
+    if !app_settings.pro_unlocked {
+        return Err("Pro required for this feature".to_string());
+    }
+
     let monitor = crate::db::Monitor {
         id: Uuid::new_v4().to_string(),
         url,
@@ -800,6 +834,11 @@ pub async fn generate_digest(state: State<'_, AppState>) -> Result<Clip, String>
 
 #[tauri::command]
 pub fn create_schedule(url: String, job_type: String, cron: String, flags: Option<String>, state: State<'_, AppState>) -> Result<String, String> {
+    let app_settings = crate::settings::get_settings(&state.db)?;
+    if !app_settings.pro_unlocked {
+        return Err("Pro required for this feature".to_string());
+    }
+
     let schedule = crate::db::Schedule {
         id: Uuid::new_v4().to_string(),
         url,
@@ -834,4 +873,77 @@ pub fn toggle_schedule(id: String, enabled: bool, state: State<'_, AppState>) ->
         .ok_or_else(|| format!("Schedule not found: {}", id))?;
     schedule.enabled = if enabled { 1 } else { 0 };
     state.db.update_schedule(&schedule).map_err(|e| format!("DB error: {}", e))
+}
+
+// Gallery commands
+
+#[tauri::command]
+pub fn list_gallery(limit: Option<i64>, offset: Option<i64>, state: State<'_, AppState>) -> Result<Vec<crate::db::GalleryItem>, String> {
+    state.db.list_gallery_items(limit.unwrap_or(50), offset.unwrap_or(0))
+        .map_err(|e| format!("DB error: {}", e))
+}
+
+#[tauri::command]
+pub fn gallery_count(state: State<'_, AppState>) -> Result<i64, String> {
+    state.db.count_gallery_items().map_err(|e| format!("DB error: {}", e))
+}
+
+#[tauri::command]
+pub fn update_gallery_item(item_id: String, item_type: String, collection_id: Option<String>, tags: String, flag: String, state: State<'_, AppState>) -> Result<(), String> {
+    state.db.update_gallery_meta(&item_id, &item_type, collection_id.as_deref(), &tags, &flag)
+        .map_err(|e| format!("DB error: {}", e))
+}
+
+// Collection commands
+
+#[tauri::command]
+pub fn create_collection(name: String, color: Option<String>, state: State<'_, AppState>) -> Result<crate::db::Collection, String> {
+    let collection = crate::db::Collection {
+        id: uuid::Uuid::new_v4().to_string(),
+        name,
+        color,
+        position: 0,
+        created_at: chrono::Utc::now().to_rfc3339(),
+    };
+    state.db.insert_collection(&collection).map_err(|e| format!("DB error: {}", e))?;
+    Ok(collection)
+}
+
+#[tauri::command]
+pub fn list_collections_cmd(state: State<'_, AppState>) -> Result<Vec<crate::db::Collection>, String> {
+    state.db.list_collections().map_err(|e| format!("DB error: {}", e))
+}
+
+#[tauri::command]
+pub fn delete_collection_cmd(id: String, state: State<'_, AppState>) -> Result<(), String> {
+    state.db.delete_collection(&id).map_err(|e| format!("DB error: {}", e))
+}
+
+// License activation
+
+#[tauri::command]
+pub async fn activate_license(license_key: String, state: State<'_, AppState>) -> Result<crate::license::ActivationResult, String> {
+    let result = crate::license::activate_license(&license_key).await?;
+    if result.success {
+        let mut settings = crate::settings::get_settings(&state.db)?;
+        settings.pro_unlocked = true;
+        settings.license_key = license_key;
+        settings.pro_since = chrono::Utc::now().to_rfc3339();
+        crate::settings::update_settings(&state.db, &settings)?;
+    }
+    Ok(result)
+}
+
+// Legal consent
+
+const TOS_VERSION: &str = "1.0";
+
+#[tauri::command]
+pub fn check_consent(state: State<'_, AppState>) -> Result<bool, String> {
+    state.db.has_valid_consent(TOS_VERSION).map_err(|e| format!("DB error: {}", e))
+}
+
+#[tauri::command]
+pub fn accept_consent(state: State<'_, AppState>) -> Result<(), String> {
+    state.db.record_consent(TOS_VERSION).map_err(|e| format!("DB error: {}", e))
 }

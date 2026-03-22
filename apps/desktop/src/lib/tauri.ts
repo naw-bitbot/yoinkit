@@ -56,6 +56,9 @@ export interface AppSettings {
   ai_model: string;
   clip_on_download: boolean;
   bandwidth_limit: number;
+  license_key: string;
+  pro_since: string;
+  gallery_view: string;
 }
 
 export interface Preset {
@@ -122,6 +125,34 @@ export interface Monitor {
   change_detected: number;
   notify: number;
   created_at: string;
+}
+
+export interface GalleryItem {
+  item_id: string;
+  item_type: "download" | "clip";
+  title: string;
+  url: string;
+  source_type: string;
+  collection_id: string | null;
+  tags: string;
+  flag: string;
+  added_at: string;
+  created_at: string;
+}
+
+export interface Collection {
+  id: string;
+  name: string;
+  color: string | null;
+  position: number;
+  created_at: string;
+}
+
+export interface ActivationResult {
+  success: boolean;
+  error: string | null;
+  activations_used: number | null;
+  activations_limit: number | null;
 }
 
 export const api = {
@@ -195,4 +226,22 @@ export const api = {
   deleteMonitor: (id: string) => invoke<void>("delete_monitor", { id }),
   checkMonitor: (id: string) => invoke<boolean>("check_monitor", { id }),
   generateDigest: () => invoke<Clip>("generate_digest"),
+
+  // Gallery
+  listGallery: (limit?: number, offset?: number) => invoke<GalleryItem[]>("list_gallery", { limit, offset }),
+  galleryCount: () => invoke<number>("gallery_count"),
+  updateGalleryItem: (itemId: string, itemType: string, collectionId: string | null, tags: string, flag: string) =>
+    invoke<void>("update_gallery_item", { itemId, itemType, collectionId, tags, flag }),
+
+  // Collections
+  createCollection: (name: string, color?: string) => invoke<Collection>("create_collection", { name, color }),
+  listCollections: () => invoke<Collection[]>("list_collections_cmd"),
+  deleteCollection: (id: string) => invoke<void>("delete_collection_cmd", { id }),
+
+  // License
+  activateLicense: (licenseKey: string) => invoke<ActivationResult>("activate_license", { licenseKey }),
+
+  // Legal
+  checkConsent: () => invoke<boolean>("check_consent"),
+  acceptConsent: () => invoke<void>("accept_consent"),
 };

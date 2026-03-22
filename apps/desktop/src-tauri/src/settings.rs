@@ -17,6 +17,9 @@ pub struct AppSettings {
     pub ai_model: String,
     pub clip_on_download: bool,
     pub bandwidth_limit: u32,
+    pub license_key: String,
+    pub pro_since: String,
+    pub gallery_view: String,
 }
 
 pub fn get_settings(db: &Arc<Database>) -> Result<AppSettings, String> {
@@ -41,6 +44,9 @@ pub fn get_settings(db: &Arc<Database>) -> Result<AppSettings, String> {
         ai_model: get("ai_model", ""),
         clip_on_download: get("clip_on_download", "false") == "true",
         bandwidth_limit: get("bandwidth_limit", "0").parse().unwrap_or(0),
+        license_key: get("license_key", ""),
+        pro_since: get("pro_since", ""),
+        gallery_view: get("gallery_view", "grid"),
     })
 }
 
@@ -62,5 +68,8 @@ pub fn update_settings(db: &Arc<Database>, settings: &AppSettings) -> Result<(),
     set("ai_model", &settings.ai_model)?;
     set("clip_on_download", if settings.clip_on_download { "true" } else { "false" })?;
     set("bandwidth_limit", &settings.bandwidth_limit.to_string())?;
+    set("license_key", &settings.license_key)?;
+    set("pro_since", &settings.pro_since)?;
+    set("gallery_view", &settings.gallery_view)?;
     Ok(())
 }

@@ -82,6 +82,29 @@ pub struct Monitor {
     pub created_at: String,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct GalleryItem {
+    pub item_id: String,
+    pub item_type: String,       // "download" or "clip"
+    pub title: String,
+    pub url: String,
+    pub source_type: String,     // "download", "article", "archive", etc.
+    pub collection_id: Option<String>,
+    pub tags: String,
+    pub flag: String,
+    pub added_at: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Collection {
+    pub id: String,
+    pub name: String,
+    pub color: Option<String>,
+    pub position: i32,
+    pub created_at: String,
+}
+
 pub struct Database {
     conn: Mutex<Connection>,
 }
@@ -111,6 +134,9 @@ impl Database {
         }
         if current_version < 3 {
             Self::migrate_v3(&conn)?;
+        }
+        if current_version < 4 {
+            Self::migrate_v4(&conn)?;
         }
 
         let db = Self { conn: Mutex::new(conn) };
@@ -142,6 +168,9 @@ impl Database {
         }
         if current_version < 3 {
             Self::migrate_v3(&conn)?;
+        }
+        if current_version < 4 {
+            Self::migrate_v4(&conn)?;
         }
 
         let db = Self { conn: Mutex::new(conn) };
@@ -258,6 +287,54 @@ impl Database {
         Ok(())
     }
 
+    fn migrate_v4(conn: &Connection) -> Result<()> {
+        conn.execute_batch("
+            CREATE TABLE IF NOT EXISTS collections (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                color TEXT,
+                position INTEGER DEFAULT 0,
+                created_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS gallery_meta (
+                item_id TEXT NOT NULL,
+                item_type TEXT NOT NULL,
+                collection_id TEXT,
+                tags TEXT DEFAULT '',
+                flag TEXT DEFAULT '',
+                position INTEGER DEFAULT 0,
+                added_at TEXT NOT NULL,
+                PRIMARY KEY (item_id, item_type),
+                FOREIGN KEY (collection_id) REFERENCES collections(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS smart_folders (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                rules_json TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS legal_consent (
+                id INTEGER PRIMARY KEY,
+                tos_version TEXT NOT NULL,
+                accepted_at TEXT NOT NULL
+            );
+
+            INSERT OR IGNORE INTO gallery_meta (item_id, item_type, added_at)
+                SELECT id, 'download', created_at FROM downloads;
+
+            INSERT OR IGNORE INTO gallery_meta (item_id, item_type, added_at)
+                SELECT id, 'clip', created_at FROM clips;
+        ")?;
+        conn.execute(
+            "INSERT OR IGNORE INTO schema_version (version, applied_at) VALUES (4, datetime('now'))",
+            [],
+        )?;
+        Ok(())
+    }
+
     fn init_default_settings(&self) -> Result<()> {
         let conn = self.conn.lock().unwrap();
         let defaults = vec![
@@ -279,6 +356,9 @@ impl Database {
             ("ai_model", "".to_string()),
             ("clip_on_download", "false".to_string()),
             ("bandwidth_limit", "0".to_string()),
+            ("license_key", "".to_string()),
+            ("pro_since", "".to_string()),
+            ("gallery_view", "grid".to_string()),
         ];
         for (key, value) in defaults {
             conn.execute(
@@ -312,6 +392,10 @@ impl Database {
                 download.speed, download.eta, download.error,
                 download.created_at, download.completed_at, download.file_hash,
             ],
+        )?;
+        conn.execute(
+            "INSERT OR IGNORE INTO gallery_meta (item_id, item_type, added_at) VALUES (?1, 'download', ?2)",
+            params![download.id, download.created_at],
         )?;
         Ok(())
     }
@@ -439,6 +523,10 @@ impl Database {
                 clip.summary, clip.tags, clip.source_type, clip.vault_path,
                 clip.created_at, clip.updated_at,
             ],
+        )?;
+        conn.execute(
+            "INSERT OR IGNORE INTO gallery_meta (item_id, item_type, added_at) VALUES (?1, 'clip', ?2)",
+            params![clip.id, clip.created_at],
         )?;
         Ok(())
     }
@@ -658,5 +746,128 @@ impl Database {
         let conn = self.conn.lock().unwrap();
         conn.execute("DELETE FROM monitors WHERE id = ?1", params![id])?;
         Ok(())
+    }
+
+    // Gallery CRUD
+    pub fn list_gallery_items(&self, limit: i64, offset: i64) -> Result<Vec<GalleryItem>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT
+                gm.item_id,
+                gm.item_type,
+                CASE
+                    WHEN gm.item_type = 'download' THEN REPLACE(d.save_path, RTRIM(d.save_path, REPLACE(d.save_path, '/', '')), '')
+                    WHEN gm.item_type = 'clip' THEN COALESCE(c.title, '')
+                    ELSE ''
+                END AS title,
+                COALESCE(d.url, c.url, '') AS url,
+                CASE
+                    WHEN gm.item_type = 'download' THEN 'download'
+                    WHEN gm.item_type = 'clip' THEN COALESCE(c.source_type, 'clip')
+                    ELSE ''
+                END AS source_type,
+                gm.collection_id,
+                COALESCE(gm.tags, '') AS tags,
+                COALESCE(gm.flag, '') AS flag,
+                gm.added_at,
+                COALESCE(d.created_at, c.created_at, gm.added_at) AS created_at
+            FROM gallery_meta gm
+            LEFT JOIN downloads d ON gm.item_id = d.id AND gm.item_type = 'download'
+            LEFT JOIN clips c ON gm.item_id = c.id AND gm.item_type = 'clip'
+            ORDER BY gm.added_at DESC
+            LIMIT ?1 OFFSET ?2"
+        )?;
+        let rows = stmt.query_map(params![limit, offset], |row| {
+            Ok(GalleryItem {
+                item_id: row.get(0)?,
+                item_type: row.get(1)?,
+                title: row.get(2)?,
+                url: row.get(3)?,
+                source_type: row.get(4)?,
+                collection_id: row.get(5)?,
+                tags: row.get(6)?,
+                flag: row.get(7)?,
+                added_at: row.get(8)?,
+                created_at: row.get(9)?,
+            })
+        })?;
+        rows.collect()
+    }
+
+    pub fn count_gallery_items(&self) -> Result<i64> {
+        let conn = self.conn.lock().unwrap();
+        conn.query_row("SELECT COUNT(*) FROM gallery_meta", [], |row| row.get(0))
+    }
+
+    pub fn update_gallery_meta(&self, item_id: &str, item_type: &str, collection_id: Option<&str>, tags: &str, flag: &str) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE gallery_meta SET collection_id = ?3, tags = ?4, flag = ?5 WHERE item_id = ?1 AND item_type = ?2",
+            params![item_id, item_type, collection_id, tags, flag],
+        )?;
+        Ok(())
+    }
+
+    pub fn delete_gallery_meta(&self, item_id: &str, item_type: &str) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "DELETE FROM gallery_meta WHERE item_id = ?1 AND item_type = ?2",
+            params![item_id, item_type],
+        )?;
+        Ok(())
+    }
+
+    // Collections CRUD
+    pub fn insert_collection(&self, collection: &Collection) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "INSERT INTO collections (id, name, color, position, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![collection.id, collection.name, collection.color, collection.position, collection.created_at],
+        )?;
+        Ok(())
+    }
+
+    pub fn list_collections(&self) -> Result<Vec<Collection>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, name, color, position, created_at FROM collections ORDER BY position ASC"
+        )?;
+        let rows = stmt.query_map([], |row| {
+            Ok(Collection {
+                id: row.get(0)?, name: row.get(1)?, color: row.get(2)?,
+                position: row.get(3)?, created_at: row.get(4)?,
+            })
+        })?;
+        rows.collect()
+    }
+
+    pub fn delete_collection(&self, id: &str) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE gallery_meta SET collection_id = NULL WHERE collection_id = ?1",
+            params![id],
+        )?;
+        conn.execute("DELETE FROM collections WHERE id = ?1", params![id])?;
+        Ok(())
+    }
+
+    // Legal consent
+    pub fn record_consent(&self, tos_version: &str) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "INSERT INTO legal_consent (tos_version, accepted_at) VALUES (?1, datetime('now'))",
+            params![tos_version],
+        )?;
+        Ok(())
+    }
+
+    pub fn has_valid_consent(&self, current_tos_version: &str) -> Result<bool> {
+        let conn = self.conn.lock().unwrap();
+        let count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM legal_consent WHERE tos_version = ?1",
+            params![current_tos_version],
+            |row| row.get(0),
+        )?;
+        Ok(count > 0)
     }
 }

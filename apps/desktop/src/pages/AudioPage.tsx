@@ -1,12 +1,15 @@
 import { useState } from "react";
 import { useDownloads } from "../hooks/useDownloads";
+import { usePro } from "../hooks/usePro";
 import { DownloadList } from "../components/DownloadList";
+import { ProBadge } from "../components/ProBadge";
 import { Button, UrlField } from "@yoinkit/ui";
 import { FileText } from "lucide-react";
 import { api } from "../lib/tauri";
 
 export function AudioPage() {
   const { downloads, startVideoDownload, pauseDownload, resumeDownload, cancelDownload, deleteDownload } = useDownloads();
+  const { isPro } = usePro();
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [format, setFormat] = useState("mp3");
@@ -79,18 +82,24 @@ export function AudioPage() {
         <div className="flex items-center gap-3">
           <span className="text-[11px] font-medium uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Format</span>
           <div className="apple-pill flex">
-            {formats.map(f => (
-              <button key={f} onClick={() => setFormat(f)} className={`apple-pill-item uppercase ${format === f ? 'active' : ''}`}>{f}</button>
-            ))}
+            {formats.map(f => {
+              const locked = !isPro && f !== "mp3";
+              return (
+                <button key={f} onClick={() => !locked && setFormat(f)} disabled={locked} className={`apple-pill-item uppercase ${format === f ? 'active' : ''} ${locked ? 'opacity-40 cursor-not-allowed' : ''}`}>{f}{locked && <ProBadge />}</button>
+              );
+            })}
           </div>
         </div>
 
         <div className="flex items-center gap-3">
           <span className="text-[11px] font-medium uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Quality</span>
           <div className="apple-pill flex">
-            {qualities.map(q => (
-              <button key={q.value} onClick={() => setQuality(q.value)} className={`apple-pill-item ${quality === q.value ? 'active' : ''}`}>{q.label}</button>
-            ))}
+            {qualities.map(q => {
+              const locked = !isPro && q.value === "0";
+              return (
+                <button key={q.value} onClick={() => !locked && setQuality(q.value)} disabled={locked} className={`apple-pill-item ${quality === q.value ? 'active' : ''} ${locked ? 'opacity-40 cursor-not-allowed' : ''}`}>{q.label}{locked && <ProBadge />}</button>
+              );
+            })}
           </div>
         </div>
 
