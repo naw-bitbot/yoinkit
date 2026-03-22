@@ -32,7 +32,7 @@ export function VideoPage() {
   const [videoInfo, setVideoInfo] = useState<VideoInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(false);
-  const [quality, setQuality] = useState("1080p");
+  const [quality, setQuality] = useState(isPro ? "1080p" : "720p");
   const [writeSubs, setWriteSubs] = useState(false);
   const [subLang, setSubLang] = useState("en");
   const [subFormat, setSubFormat] = useState("srt");
