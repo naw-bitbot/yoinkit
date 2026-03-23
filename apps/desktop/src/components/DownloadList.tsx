@@ -15,8 +15,8 @@ export function DownloadList({ downloads, onPause, onResume, onCancel, onDelete 
     return (
       <div className="flex flex-col items-center justify-center py-12">
         <Inbox size={28} strokeWidth={1} style={{ color: 'var(--text-tertiary)' }} />
-        <p className="mt-2 text-[13px] font-medium" style={{ color: 'var(--text-tertiary)' }}>No downloads yet</p>
-        <p className="text-[11px] mt-1" style={{ color: 'var(--text-tertiary)', opacity: 0.6 }}>Paste a URL above to get started</p>
+        <p className="mt-2 text-[13px] font-medium" style={{ color: 'var(--text-tertiary)' }}>No yoinks indexed yet</p>
+        <p className="text-[11px] mt-1" style={{ color: 'var(--text-tertiary)', opacity: 0.6 }}>Paste a URL above to yoink it</p>
       </div>
     );
   }

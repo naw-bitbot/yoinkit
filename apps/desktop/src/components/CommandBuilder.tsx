@@ -23,10 +23,10 @@ const FLAG_GROUPS: FlagGroup[] = [
   {
     label: "Recursion",
     fields: [
-      { key: "recursive", label: "Recursive download", type: "boolean", tooltip: "--recursive" },
+      { key: "recursive", label: "Recursive yoink", type: "boolean", tooltip: "--recursive" },
       { key: "depth", label: "Depth limit", type: "number", placeholder: "e.g. 5" },
       { key: "convert_links", label: "Convert links for offline viewing", type: "boolean", tooltip: "--convert-links" },
-      { key: "page_requisites", label: "Download page requisites (CSS, images)", type: "boolean", tooltip: "--page-requisites" },
+      { key: "page_requisites", label: "Include page requisites (CSS, images)", type: "boolean", tooltip: "--page-requisites" },
       { key: "no_parent", label: "Don't ascend to parent directory", type: "boolean", tooltip: "--no-parent" },
       { key: "mirror", label: "Mirror entire site", type: "boolean", tooltip: "--mirror" },
     ],
@@ -60,8 +60,8 @@ const FLAG_GROUPS: FlagGroup[] = [
     label: "Output",
     fields: [
       { key: "output_document", label: "Output filename", type: "string", placeholder: "output.html" },
-      { key: "continue_download", label: "Resume interrupted download", type: "boolean", tooltip: "--continue" },
-      { key: "timestamping", label: "Only download newer files", type: "boolean", tooltip: "--timestamping" },
+      { key: "continue_download", label: "Resume interrupted yoink", type: "boolean", tooltip: "--continue" },
+      { key: "timestamping", label: "Only yoink newer files", type: "boolean", tooltip: "--timestamping" },
       { key: "no_check_certificate", label: "Skip SSL certificate check", type: "boolean" },
     ],
   },

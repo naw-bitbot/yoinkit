@@ -17,7 +17,7 @@ export function GalleryToolbar({ view, onViewChange, count, limit, onNavigatePro
   return (
     <div className="flex items-center justify-between mb-4">
       <div className="flex items-center gap-3">
-        <h1 className="text-2xl font-bold">Gallery</h1>
+        <h1 className="text-2xl font-bold">Library</h1>
         {!isPro && count > Math.floor(limit * 0.6) && (
           <span className="text-sm text-[var(--text-muted)]">{count}/{limit}</span>
         )}

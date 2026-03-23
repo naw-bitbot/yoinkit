@@ -8,7 +8,7 @@ type Filter = "all" | "clip" | "download";
 const FILTERS: { id: Filter; label: string }[] = [
   { id: "all", label: "All" },
   { id: "clip", label: "Clips" },
-  { id: "download", label: "Downloads" },
+  { id: "download", label: "Yoinks" },
 ];
 
 export function SearchPage() {

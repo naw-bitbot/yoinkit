@@ -14,7 +14,7 @@ export function UrlField({
   value,
   onChange,
   onSubmit,
-  placeholder = "Paste a URL to download...",
+  placeholder = "Paste a URL to yoink...",
   className = "",
   disabled = false,
 }: UrlFieldProps) {

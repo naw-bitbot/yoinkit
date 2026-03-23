@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useDownloads } from "../hooks/useDownloads";
+import { usePro } from "../hooks/usePro";
 import { Button, UrlField } from "@yoinkit/ui";
-import { Search, Check, Loader2 } from "lucide-react";
+import { Search, Check, Loader2, Info } from "lucide-react";
+import { ProBadge } from "../components/ProBadge";
 
 interface ScrapedImage {
   url: string;
@@ -11,15 +13,38 @@ interface ScrapedImage {
   file_type: string | null;
 }
 
+type SizePreset = "favicon" | "thumbnail" | "small" | "medium" | "large" | "xlarge";
+
+const SIZE_PRESETS: { id: SizePreset; label: string; minWidth: number; pro: boolean }[] = [
+  { id: "favicon", label: "Favicon", minWidth: 0, pro: true },
+  { id: "thumbnail", label: "Thumbnail", minWidth: 0, pro: true },
+  { id: "small", label: "Small", minWidth: 100, pro: false },
+  { id: "medium", label: "Medium", minWidth: 300, pro: false },
+  { id: "large", label: "Large", minWidth: 600, pro: false },
+  { id: "xlarge", label: "XL", minWidth: 1200, pro: true },
+];
+
+function getSizeFilter(preset: SizePreset): { minWidth: number; maxWidth: number | null } {
+  switch (preset) {
+    case "favicon": return { minWidth: 0, maxWidth: 32 };
+    case "thumbnail": return { minWidth: 33, maxWidth: 99 };
+    case "small": return { minWidth: 100, maxWidth: 299 };
+    case "medium": return { minWidth: 300, maxWidth: 599 };
+    case "large": return { minWidth: 600, maxWidth: 1199 };
+    case "xlarge": return { minWidth: 1200, maxWidth: null };
+  }
+}
+
 export function ImagesPage() {
   const { deleteDownload } = useDownloads();
+  const { isPro } = usePro();
   const [url, setUrl] = useState("");
   const [images, setImages] = useState<ScrapedImage[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [scraping, setScraping] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [minWidth, setMinWidth] = useState(100);
+  const [sizePreset, setSizePreset] = useState<SizePreset>("medium");
   const [filterType, setFilterType] = useState<string>("all");
 
   const handleScrape = async () => {
@@ -31,7 +56,7 @@ export function ImagesPage() {
       setImages(result);
       setSelected(new Set(result.map(img => img.url)));
     } catch (err: any) {
-      setError(typeof err === "string" ? err : err.message || "Failed to scrape images");
+      setError(typeof err === "string" ? err : err.message || "Failed to scan images");
     } finally { setScraping(false); }
   };
 
@@ -43,7 +68,7 @@ export function ImagesPage() {
       await invoke("download_images", { imageUrls: Array.from(selected) });
       setImages([]); setSelected(new Set()); setUrl("");
     } catch (err: any) {
-      setError(typeof err === "string" ? err : err.message || "Download failed");
+      setError(typeof err === "string" ? err : err.message || "Yoink failed");
     } finally { setDownloading(false); }
   };
 
@@ -58,9 +83,14 @@ export function ImagesPage() {
   const selectNone = () => setSelected(new Set());
   const imageTypes = ["all", ...new Set(images.map(img => img.file_type).filter(Boolean))] as string[];
 
+  const { minWidth, maxWidth } = getSizeFilter(sizePreset);
+
   const filteredImages = images.filter(img => {
     if (filterType !== "all" && img.file_type !== filterType) return false;
-    if (minWidth > 0 && img.width && img.width < minWidth) return false;
+    if (img.width) {
+      if (img.width < minWidth) return false;
+      if (maxWidth !== null && img.width > maxWidth) return false;
+    }
     return true;
   });
 
@@ -68,15 +98,40 @@ export function ImagesPage() {
     <div className="space-y-8 max-w-3xl">
       <div>
         <h2 className="text-[20px] font-bold tracking-tight" style={{ color: 'var(--text)' }}>Images</h2>
-        <p className="text-[13px] mt-1" style={{ color: 'var(--text-secondary)' }}>Extract and download all images from any webpage.</p>
+        <p className="text-[13px] mt-1" style={{ color: 'var(--text-secondary)' }}>Scan and yoink images from any webpage.</p>
       </div>
 
       <div className="flex gap-2">
-        <UrlField value={url} onChange={setUrl} onSubmit={handleScrape} placeholder="Paste a webpage URL to find images..." className="flex-1" />
+        <UrlField value={url} onChange={setUrl} onSubmit={handleScrape} placeholder="Paste a webpage URL to scan for images..." className="flex-1" />
         <Button onClick={handleScrape} loading={scraping}>
           <Search size={15} strokeWidth={1.5} />
           Scan
         </Button>
+      </div>
+
+      <p className="text-xs text-[var(--text-muted)] flex items-center gap-1">
+        <Info className="w-3 h-3" />
+        Ensure you have permission to index this content.
+      </p>
+
+      {/* Size preset — Apple segmented control */}
+      <div className="flex items-center gap-3">
+        <span className="text-[11px] font-medium uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Size</span>
+        <div className="apple-pill flex">
+          {SIZE_PRESETS.map(s => {
+            const locked = s.pro && !isPro;
+            return (
+              <button
+                key={s.id}
+                onClick={() => !locked && setSizePreset(s.id)}
+                disabled={locked}
+                className={`apple-pill-item ${sizePreset === s.id ? 'active' : ''} ${locked ? 'opacity-40 cursor-not-allowed' : ''}`}
+              >
+                {s.label}{locked && <ProBadge />}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {error && (
@@ -92,11 +147,6 @@ export function ImagesPage() {
                 <select value={filterType} onChange={e => setFilterType(e.target.value)} className="apple-input px-2.5 py-1.5 text-[11px]">
                   {imageTypes.map(t => <option key={t} value={t}>{t === "all" ? "All types" : t}</option>)}
                 </select>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>Min width</span>
-                <input type="number" value={minWidth} onChange={e => setMinWidth(Number(e.target.value))} className="apple-input px-2.5 py-1.5 text-[11px] w-20" />
-                <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>px</span>
               </div>
             </div>
             <div className="flex items-center gap-3 text-[11px]">
@@ -122,7 +172,7 @@ export function ImagesPage() {
                   </div>
                 )}
                 <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent px-2 py-1">
-                  <p className="text-[11px] text-white/80 truncate tabular-nums">{img.file_type || "IMG"} {img.width && img.height ? `${img.width}x${img.height}` : ""}</p>
+                  <p className="text-[11px] text-white/80 truncate tabular-nums">{img.file_type || "IMG"} {img.width && img.height ? `${img.width}×${img.height}` : ""}</p>
                 </div>
               </button>
             ))}

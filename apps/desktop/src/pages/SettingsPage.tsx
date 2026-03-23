@@ -92,7 +92,7 @@ export function SettingsPage() {
           <div className="pt-2" style={{ borderTop: '0.5px solid var(--separator)' }}>
             <label className="flex items-center gap-2 text-[13px] font-medium" style={{ color: 'var(--text)' }}>
               <Layers size={15} strokeWidth={1.5} style={{ color: 'var(--text-secondary)' }} />
-              Max concurrent downloads
+              Max concurrent yoinks
             </label>
             <input
               type="number" min={1} max={10}
@@ -273,7 +273,7 @@ export function SettingsPage() {
                   {settings.pro_unlocked ? "Pro Unlocked" : "Free Plan"}
                 </p>
                 <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-                  {settings.pro_unlocked ? "You have access to all Pro features" : "Upgrade for command builder, presets, and batch downloads"}
+                  {settings.pro_unlocked ? "You have access to all Pro features" : "Upgrade for command builder, presets, and batch yoinking"}
                 </p>
               </div>
             </div>

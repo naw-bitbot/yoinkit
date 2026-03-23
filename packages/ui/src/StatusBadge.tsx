@@ -10,9 +10,9 @@ interface StatusBadgeProps {
 
 const STATUS_CONFIG: Record<DownloadStatus, { label: string; colorVar: string; icon: React.ComponentType<any> }> = {
   queued: { label: "Queued", colorVar: '--text-tertiary', icon: Clock },
-  downloading: { label: "Downloading", colorVar: '--accent', icon: Loader2 },
+  downloading: { label: "Yoinking", colorVar: '--accent', icon: Loader2 },
   paused: { label: "Paused", colorVar: '--warning', icon: Pause },
-  completed: { label: "Completed", colorVar: '--success', icon: CheckCircle2 },
+  completed: { label: "Indexed", colorVar: '--success', icon: CheckCircle2 },
   failed: { label: "Failed", colorVar: '--danger', icon: XCircle },
   cancelled: { label: "Cancelled", colorVar: '--text-tertiary', icon: Ban },
 };

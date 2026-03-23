@@ -4,8 +4,7 @@ import { usePro } from "../hooks/usePro";
 import { DownloadList } from "../components/DownloadList";
 import { ProBadge } from "../components/ProBadge";
 import { Button, UrlField } from "@yoinkit/ui";
-import { FileText } from "lucide-react";
-import { api } from "../lib/tauri";
+import { Info, FileText } from "lucide-react";
 
 export function AudioPage() {
   const { downloads, startVideoDownload, pauseDownload, resumeDownload, cancelDownload, deleteDownload } = useDownloads();
@@ -18,10 +17,6 @@ export function AudioPage() {
   const [subLang, setSubLang] = useState("en");
   const [subFormat, setSubFormat] = useState("srt");
   const [error, setError] = useState<string | null>(null);
-  const [transcriptText, setTranscriptText] = useState("");
-  const [structuring, setStructuring] = useState(false);
-  const [structureResult, setStructureResult] = useState<string | null>(null);
-
   const subFormats = ["srt", "vtt", "txt"];
   const subLangs = [
     { label: "English", value: "en" }, { label: "Spanish", value: "es" },
@@ -42,24 +37,8 @@ export function AudioPage() {
       await startVideoDownload(url.trim(), format, quality, true, writeSubs, subLang, subFormat);
       setUrl("");
     } catch (err: any) {
-      setError(typeof err === "string" ? err : err.message || "Download failed");
+      setError(typeof err === "string" ? err : err.message || "Yoink failed");
     } finally { setLoading(false); }
-  };
-
-  const handleStructure = async () => {
-    if (!transcriptText.trim()) return;
-    setStructuring(true);
-    setStructureResult(null);
-    try {
-      await api.structureTranscript(transcriptText);
-      setStructureResult("Notes saved to Clipper!");
-      setTranscriptText("");
-      setTimeout(() => setStructureResult(null), 3000);
-    } catch (err) {
-      setStructureResult(err instanceof Error ? err.message : "Failed to structure notes");
-    } finally {
-      setStructuring(false);
-    }
   };
 
   const audioDownloads = downloads.filter(d => d.flags === "audio_only");
@@ -69,15 +48,20 @@ export function AudioPage() {
       <div>
         <h2 className="text-[20px] font-bold tracking-tight" style={{ color: 'var(--text)' }}>Audio</h2>
         <p className="text-[13px] mt-1" style={{ color: 'var(--text-secondary)' }}>
-          Extract audio from any video URL. Supports MP3, AAC, FLAC, WAV, and Opus.
+          Yoink audio from any URL. Supports MP3, AAC, FLAC, WAV, and Opus.
         </p>
       </div>
 
       <div className="space-y-4">
         <div className="flex gap-2">
-          <UrlField value={url} onChange={setUrl} onSubmit={handleDownload} placeholder="Paste a video URL to extract audio..." className="flex-1" />
-          <Button onClick={handleDownload} loading={loading}>Extract</Button>
+          <UrlField value={url} onChange={setUrl} onSubmit={handleDownload} placeholder="Paste a URL to yoink audio..." className="flex-1" />
+          <Button onClick={handleDownload} loading={loading}>Yoink!</Button>
         </div>
+
+        <p className="text-xs text-[var(--text-muted)] flex items-center gap-1">
+          <Info className="w-3 h-3" />
+          Ensure you have permission to index this content.
+        </p>
 
         <div className="flex items-center gap-3">
           <span className="text-[11px] font-medium uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Format</span>
@@ -137,41 +121,9 @@ export function AudioPage() {
         </div>
       )}
 
-      {/* Structure Transcript */}
-      <div className="glass rounded-[10px] p-4 space-y-3">
-        <label className="flex items-center gap-2 text-[13px] font-medium" style={{ color: 'var(--text)' }}>
-          <FileText size={15} strokeWidth={1.5} style={{ color: 'var(--text-secondary)' }} />
-          Structure Transcript
-        </label>
-        <textarea
-          value={transcriptText}
-          onChange={(e) => setTranscriptText(e.target.value)}
-          placeholder="Paste transcript text here…"
-          className="apple-input w-full px-3.5 py-2 text-[13px] resize-none"
-          rows={4}
-          style={{ minHeight: '80px' }}
-        />
-        <div className="flex items-center gap-2">
-          <Button
-            variant="primary"
-            size="sm"
-            loading={structuring}
-            disabled={structuring || !transcriptText.trim()}
-            onClick={handleStructure}
-          >
-            Structure Notes
-          </Button>
-          {structureResult && (
-            <span className="text-[11px]" style={{ color: structureResult.startsWith("Notes") ? 'var(--brand)' : 'var(--danger)' }}>
-              {structureResult}
-            </span>
-          )}
-        </div>
-      </div>
-
       {audioDownloads.length > 0 && (
         <div>
-          <h3 className="text-[11px] font-medium uppercase tracking-wide mb-3" style={{ color: 'var(--text-tertiary)' }}>Downloads</h3>
+          <h3 className="text-[11px] font-medium uppercase tracking-wide mb-3" style={{ color: 'var(--text-tertiary)' }}>Indexed</h3>
           <DownloadList downloads={audioDownloads} onPause={pauseDownload} onResume={resumeDownload} onCancel={cancelDownload} onDelete={deleteDownload} />
         </div>
       )}

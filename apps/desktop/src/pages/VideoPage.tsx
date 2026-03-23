@@ -5,7 +5,6 @@ import { DownloadList } from "../components/DownloadList";
 import { ProBadge } from "../components/ProBadge";
 import { Button, UrlField } from "@yoinkit/ui";
 import { Info, Subtitles, FileText } from "lucide-react";
-import { api } from "../lib/tauri";
 
 interface VideoInfo {
   title: string;
@@ -38,10 +37,6 @@ export function VideoPage() {
   const [subFormat, setSubFormat] = useState("srt");
   const [subsOnly, setSubsOnly] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [transcriptText, setTranscriptText] = useState("");
-  const [structuring, setStructuring] = useState(false);
-  const [structureResult, setStructureResult] = useState<string | null>(null);
-
   const qualities = ["4k", "1080p", "720p", "480p", "360p"];
   const subFormats = ["srt", "vtt", "ass", "txt"];
   const subLangs = [
@@ -75,7 +70,7 @@ export function VideoPage() {
         await startVideoDownload(url.trim(), undefined, quality, false, writeSubs, subLang, subFormat);
       }
     } catch (err: any) {
-      setError(typeof err === "string" ? err : err.message || "Download failed");
+      setError(typeof err === "string" ? err : err.message || "Yoink failed");
     } finally { setLoading(false); }
   };
 
@@ -91,24 +86,8 @@ export function VideoPage() {
       }
       setUrl(""); setVideoInfo(null);
     } catch (err: any) {
-      setError(typeof err === "string" ? err : err.message || "Download failed");
+      setError(typeof err === "string" ? err : err.message || "Yoink failed");
     } finally { setLoading(false); }
-  };
-
-  const handleStructure = async () => {
-    if (!transcriptText.trim()) return;
-    setStructuring(true);
-    setStructureResult(null);
-    try {
-      await api.structureTranscript(transcriptText);
-      setStructureResult("Notes saved to Clipper!");
-      setTranscriptText("");
-      setTimeout(() => setStructureResult(null), 3000);
-    } catch (err) {
-      setStructureResult(err instanceof Error ? err.message : "Failed to structure notes");
-    } finally {
-      setStructuring(false);
-    }
   };
 
   const videoDownloads = downloads.filter(d => d.flags === "video" || d.flags === "audio_only");
@@ -118,7 +97,7 @@ export function VideoPage() {
       <div>
         <h2 className="text-[20px] font-bold tracking-tight" style={{ color: 'var(--text)' }}>Video</h2>
         <p className="text-[13px] mt-1" style={{ color: 'var(--text-secondary)' }}>
-          Download videos from YouTube, Vimeo, TikTok, and 1000+ sites.
+          Yoink videos and index them to your library.
         </p>
       </div>
 
@@ -136,7 +115,7 @@ export function VideoPage() {
 
         <p className="text-xs text-[var(--text-muted)] flex items-center gap-1">
           <Info className="w-3 h-3" />
-          Ensure you have permission to download this content.
+          Ensure you have permission to index this content.
         </p>
 
         {/* Quality — Apple segmented control */}
@@ -209,46 +188,14 @@ export function VideoPage() {
             </div>
           </div>
           <Button onClick={handleDownload} loading={loading} className="w-full" size="lg">
-            Download at {quality}
+            Yoink at {quality}
           </Button>
         </div>
       )}
 
-      {/* Structure Transcript */}
-      <div className="glass rounded-[10px] p-4 space-y-3">
-        <label className="flex items-center gap-2 text-[13px] font-medium" style={{ color: 'var(--text)' }}>
-          <FileText size={15} strokeWidth={1.5} style={{ color: 'var(--text-secondary)' }} />
-          Structure Transcript
-        </label>
-        <textarea
-          value={transcriptText}
-          onChange={(e) => setTranscriptText(e.target.value)}
-          placeholder="Paste transcript text here…"
-          className="apple-input w-full px-3.5 py-2 text-[13px] resize-none"
-          rows={4}
-          style={{ minHeight: '80px' }}
-        />
-        <div className="flex items-center gap-2">
-          <Button
-            variant="primary"
-            size="sm"
-            loading={structuring}
-            disabled={structuring || !transcriptText.trim()}
-            onClick={handleStructure}
-          >
-            Structure Notes
-          </Button>
-          {structureResult && (
-            <span className="text-[11px]" style={{ color: structureResult.startsWith("Notes") ? 'var(--brand)' : 'var(--danger)' }}>
-              {structureResult}
-            </span>
-          )}
-        </div>
-      </div>
-
       {videoDownloads.length > 0 && (
         <div>
-          <h3 className="text-[11px] font-medium uppercase tracking-wide mb-3" style={{ color: 'var(--text-tertiary)' }}>Downloads</h3>
+          <h3 className="text-[11px] font-medium uppercase tracking-wide mb-3" style={{ color: 'var(--text-tertiary)' }}>Indexed</h3>
           <DownloadList downloads={videoDownloads} onPause={pauseDownload} onResume={resumeDownload} onCancel={cancelDownload} onDelete={deleteDownload} />
         </div>
       )}

@@ -48,7 +48,7 @@ export function GalleryPage({ onNavigate }: GalleryPageProps) {
 
       {isFull && (
         <div className="mb-4 p-3 rounded-xl bg-[color-mix(in_srgb,var(--brand)_10%,transparent)] text-sm flex items-center justify-between">
-          <span>Gallery full · {count}/{FREE_LIMIT} items · Upgrade for unlimited + collections</span>
+          <span>Library full · {count}/{FREE_LIMIT} items · Upgrade for unlimited + collections</span>
           <button onClick={() => onNavigate?.("pro")} className="text-[var(--brand)] font-medium hover:underline">
             Upgrade
           </button>
@@ -58,8 +58,8 @@ export function GalleryPage({ onNavigate }: GalleryPageProps) {
       {displayItems.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 space-y-3">
           <LayoutGrid className="w-12 h-12 text-[var(--text-muted)]" />
-          <h2 className="text-lg font-semibold text-[var(--text-secondary)]">No yoinks yet</h2>
-          <p className="text-sm text-[var(--text-muted)]">Download, clip, or archive something to see it here</p>
+          <h2 className="text-lg font-semibold text-[var(--text-secondary)]">Your library is empty</h2>
+          <p className="text-sm text-[var(--text-muted)]">Yoink something to see it indexed here</p>
         </div>
       ) : (
         <>

@@ -35,7 +35,7 @@ export const useThemeContext = () => useContext(ThemeContext);
 
 const NAV_ITEMS: { id: Page; label: string; icon: React.ComponentType<LucideProps> }[] = [
   { id: "yoinks", label: "Yoinks", icon: Download },
-  { id: "gallery", label: "Gallery", icon: LayoutGrid },
+  { id: "gallery", label: "Library", icon: LayoutGrid },
   { id: "video", label: "Video", icon: Video },
   { id: "audio", label: "Audio", icon: Music },
   { id: "images", label: "Images", icon: ImageIcon },
@@ -107,6 +107,13 @@ function App() {
                 {label}
               </button>
             ))}
+          </div>
+
+          {/* Definition */}
+          <div className="px-4 py-3">
+            <p className="text-[11px] italic" style={{ color: 'var(--text-tertiary)' }}>
+              <span className="font-medium not-italic" style={{ color: 'var(--text-secondary)' }}>Yoink</span> – get something quickly
+            </p>
           </div>
 
           {/* Theme toggle */}

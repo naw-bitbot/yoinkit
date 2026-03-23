@@ -51,12 +51,12 @@ export function ProPage() {
 
   // Free state — shop window
   const features = [
-    { icon: Video, title: "4K & 1080p Video", desc: "Download in full quality, any format" },
+    { icon: Video, title: "4K & 1080p Video", desc: "Log in full quality, any format" },
     { icon: Music, title: "Lossless Audio", desc: "FLAC, WAV, AAC, Opus, 320kbps" },
-    { icon: LayoutGrid, title: "Unlimited Gallery", desc: "Collections, tags, flags, smart folders" },
-    { icon: Layers, title: "Batch Operations", desc: "Download, clip, and export in bulk" },
-    { icon: Gauge, title: "Multi-Thread Downloads", desc: "Parallel chunked downloading" },
-    { icon: Calendar, title: "Scheduling", desc: "Download scheduler & site monitoring" },
+    { icon: LayoutGrid, title: "Unlimited Library", desc: "Collections, tags, flags, smart folders" },
+    { icon: Layers, title: "Batch Operations", desc: "Yoink, clip, and export in bulk" },
+    { icon: Gauge, title: "Multi-Thread Logging", desc: "Parallel chunked fetching" },
+    { icon: Calendar, title: "Scheduling", desc: "Yoink scheduler & site monitoring" },
     { icon: Bot, title: "MCP Server", desc: "Claude Desktop integration" },
     { icon: Terminal, title: "Wget Builder", desc: "Visual command builder & presets" },
     { icon: Search, title: "Advanced Search", desc: "Regex, filters, saved searches" },
