@@ -121,6 +121,59 @@ export function SettingsPage() {
           </div>
         </div>
 
+        {/* Video */}
+        <div>
+          <h3 className="text-[11px] font-medium uppercase tracking-wide mb-2 px-1" style={{ color: 'var(--text-tertiary)' }}>Video</h3>
+          <div className="glass rounded-[10px] p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[13px]" style={{ color: 'var(--text)' }}>Default quality</span>
+              <div className="apple-pill flex">
+                {["4k", "1080p", "720p", "480p", "360p"].map(q => {
+                  const locked = !settings.pro_unlocked && (q === "4k" || q === "1080p");
+                  return (
+                    <button key={q} onClick={() => !locked && updateSettings({ ...settings, video_quality: q } as any)} disabled={locked} className={`apple-pill-item ${(settings as any).video_quality === q || (!(settings as any).video_quality && q === "720p") ? 'active' : ''} ${locked ? 'opacity-40 cursor-not-allowed' : ''}`}>
+                      {q}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Audio */}
+        <div>
+          <h3 className="text-[11px] font-medium uppercase tracking-wide mb-2 px-1" style={{ color: 'var(--text-tertiary)' }}>Audio</h3>
+          <div className="glass rounded-[10px] p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[13px]" style={{ color: 'var(--text)' }}>Default format</span>
+              <div className="apple-pill flex">
+                {["mp3", "aac", "flac", "wav", "opus"].map(f => {
+                  const locked = !settings.pro_unlocked && f !== "mp3";
+                  return (
+                    <button key={f} onClick={() => !locked && updateSettings({ ...settings, audio_format: f } as any)} disabled={locked} className={`apple-pill-item uppercase ${(settings as any).audio_format === f || (!(settings as any).audio_format && f === "mp3") ? 'active' : ''} ${locked ? 'opacity-40 cursor-not-allowed' : ''}`}>
+                      {f}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="flex items-center justify-between pt-2" style={{ borderTop: '0.5px solid var(--separator)' }}>
+              <span className="text-[13px]" style={{ color: 'var(--text)' }}>Default quality</span>
+              <div className="apple-pill flex">
+                {[{ label: "320k", value: "0" }, { label: "192k", value: "5" }, { label: "128k", value: "8" }].map(q => {
+                  const locked = !settings.pro_unlocked && q.value === "0";
+                  return (
+                    <button key={q.value} onClick={() => !locked && updateSettings({ ...settings, audio_quality: q.value } as any)} disabled={locked} className={`apple-pill-item ${(settings as any).audio_quality === q.value || (!(settings as any).audio_quality && q.value === "5") ? 'active' : ''} ${locked ? 'opacity-40 cursor-not-allowed' : ''}`}>
+                      {q.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Obsidian & Clipper */}
         <div>
           <h3 className="text-[11px] font-medium uppercase tracking-wide mb-2 px-1" style={{ color: 'var(--text-tertiary)' }}>Obsidian &amp; Clipper</h3>

@@ -1,22 +1,16 @@
 import { useState, useEffect, createContext, useContext } from "react";
-import { Download, Video, Music, ImageIcon, Zap, Settings, Sun, Moon, Monitor, Scissors, Archive, Search, Brain, LayoutGrid, type LucideProps } from "lucide-react";
+import { Download, Zap, Settings, Sun, Moon, Monitor, Brain, LayoutGrid, type LucideProps } from "lucide-react";
 import { useTheme } from "./hooks/useTheme";
 
-import { SimplePage } from "./pages/SimplePage";
-import { VideoPage } from "./pages/VideoPage";
-import { AudioPage } from "./pages/AudioPage";
-import { ImagesPage } from "./pages/ImagesPage";
+import { YoinkPage } from "./pages/YoinkPage";
+import { LibraryPage } from "./pages/LibraryPage";
 import { ProPage } from "./pages/ProPage";
 import { SettingsPage } from "./pages/SettingsPage";
-import { ClipperPage } from "./pages/ClipperPage";
-import { ArchivePage } from "./pages/ArchivePage";
-import { SearchPage } from "./pages/SearchPage";
 import { AIPage } from "./pages/AIPage";
-import { GalleryPage } from "./pages/GalleryPage";
 import { LegalConsent } from "./components/LegalConsent";
 import { api } from "./lib/tauri";
 
-type Page = "yoinks" | "gallery" | "video" | "audio" | "images" | "clipper" | "archive" | "search" | "ai" | "pro" | "settings";
+type Page = "yoinks" | "library" | "ai" | "pro" | "settings";
 type Theme = "light" | "dark" | "system";
 
 interface ThemeContextType {
@@ -34,17 +28,9 @@ export const ThemeContext = createContext<ThemeContextType>({
 export const useThemeContext = () => useContext(ThemeContext);
 
 const NAV_ITEMS: { id: Page; label: string; icon: React.ComponentType<LucideProps> }[] = [
-  { id: "yoinks", label: "Yoinks", icon: Download },
-  { id: "gallery", label: "Library", icon: LayoutGrid },
-  { id: "video", label: "Video", icon: Video },
-  { id: "audio", label: "Audio", icon: Music },
-  { id: "images", label: "Images", icon: ImageIcon },
-  { id: "clipper", label: "Clipper", icon: Scissors },
-  { id: "archive", label: "Archive", icon: Archive },
-  { id: "search", label: "Search", icon: Search },
+  { id: "yoinks", label: "Yoink it", icon: Download },
+  { id: "library", label: "Library", icon: LayoutGrid },
   { id: "ai", label: "Ask", icon: Brain },
-  { id: "pro", label: "Pro", icon: Zap },
-  { id: "settings", label: "Settings", icon: Settings },
 ];
 
 function App() {
@@ -73,6 +59,28 @@ function App() {
     return <LegalConsent onAccept={handleAcceptConsent} />;
   }
 
+  const navButton = (id: Page, label: string, Icon: React.ComponentType<LucideProps>) => (
+    <button
+      key={id}
+      onClick={() => setPage(id)}
+      className="w-full flex items-center gap-2 px-2 py-[5px] rounded-[6px] text-[13px] transition-all duration-150"
+      style={{
+        background: page === id ? 'var(--fill)' : 'transparent',
+        color: page === id ? 'var(--text)' : 'var(--text-secondary)',
+        fontWeight: page === id ? 500 : 400,
+      }}
+      onMouseEnter={e => {
+        if (page !== id) e.currentTarget.style.background = 'var(--fill)';
+      }}
+      onMouseLeave={e => {
+        if (page !== id) e.currentTarget.style.background = 'transparent';
+      }}
+    >
+      <Icon size={16} strokeWidth={1.5} />
+      {label}
+    </button>
+  );
+
   return (
     <ThemeContext.Provider value={themeState}>
       <div className="h-screen flex overflow-hidden" style={{ background: 'var(--bg)' }}>
@@ -85,28 +93,18 @@ function App() {
             </h1>
           </div>
 
+          {/* Main nav items */}
           <div className="flex-1 px-2 pt-3 space-y-px">
-            {NAV_ITEMS.map(({ id, label, icon: Icon }) => (
-              <button
-                key={id}
-                onClick={() => setPage(id)}
-                className="w-full flex items-center gap-2 px-2 py-[5px] rounded-[6px] text-[13px] transition-all duration-150"
-                style={{
-                  background: page === id ? 'var(--fill)' : 'transparent',
-                  color: page === id ? 'var(--text)' : 'var(--text-secondary)',
-                  fontWeight: page === id ? 500 : 400,
-                }}
-                onMouseEnter={e => {
-                  if (page !== id) e.currentTarget.style.background = 'var(--fill)';
-                }}
-                onMouseLeave={e => {
-                  if (page !== id) e.currentTarget.style.background = 'transparent';
-                }}
-              >
-                <Icon size={16} strokeWidth={1.5} />
-                {label}
-              </button>
-            ))}
+            {NAV_ITEMS.map(({ id, label, icon: Icon }) => navButton(id, label, Icon))}
+
+            {/* Spacer */}
+            <div className="flex-1" />
+          </div>
+
+          {/* Bottom nav items: Pro + Settings */}
+          <div className="px-2 pb-1 space-y-px">
+            {navButton("pro", "Pro", Zap)}
+            {navButton("settings", "Settings", Settings)}
           </div>
 
           {/* Definition */}
@@ -139,14 +137,8 @@ function App() {
 
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto px-6 py-5">
-          {page === "yoinks" && <SimplePage />}
-          {page === "gallery" && <GalleryPage onNavigate={(p) => setPage(p as Page)} />}
-          {page === "video" && <VideoPage />}
-          {page === "audio" && <AudioPage />}
-          {page === "images" && <ImagesPage />}
-          {page === "clipper" && <ClipperPage />}
-          {page === "archive" && <ArchivePage />}
-          {page === "search" && <SearchPage />}
+          {page === "yoinks" && <YoinkPage />}
+          {page === "library" && <LibraryPage />}
           {page === "ai" && <AIPage />}
           {page === "pro" && <ProPage />}
           {page === "settings" && <SettingsPage />}
