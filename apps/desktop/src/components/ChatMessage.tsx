@@ -1,5 +1,18 @@
 import { ChatMessage as ChatMessageType } from "../lib/tauri";
-import { MarkdownPreview } from "./MarkdownPreview";
+
+// Simple text renderer for chat responses (renders as plain text with line breaks)
+function SimpleMarkdown({ content }: { content: string }) {
+  const lines = content.split("\n");
+  return (
+    <div className="space-y-1">
+      {lines.map((line, i) => (
+        <p key={i} className="text-[13px] leading-relaxed" style={{ color: "var(--text)" }}>
+          {line || "\u00A0"}
+        </p>
+      ))}
+    </div>
+  );
+}
 
 interface ChatMessageProps {
   message: ChatMessageType;
@@ -46,7 +59,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
           {isUser ? (
             message.content
           ) : (
-            <MarkdownPreview content={message.content} />
+            <SimpleMarkdown content={message.content} />
           )}
         </div>
 
