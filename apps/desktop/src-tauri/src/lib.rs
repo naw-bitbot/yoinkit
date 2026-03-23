@@ -135,6 +135,7 @@ pub fn run() {
             commands::activate_license,
             commands::check_consent,
             commands::accept_consent,
+            commands::save_link,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

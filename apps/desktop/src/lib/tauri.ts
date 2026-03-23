@@ -241,6 +241,9 @@ export const api = {
   // License
   activateLicense: (licenseKey: string) => invoke<ActivationResult>("activate_license", { licenseKey }),
 
+  // Links / bookmarks
+  saveLink: (url: string, notes?: string) => invoke<Clip>("save_link", { url, notes }),
+
   // Legal
   checkConsent: () => invoke<boolean>("check_consent"),
   acceptConsent: () => invoke<void>("accept_consent"),

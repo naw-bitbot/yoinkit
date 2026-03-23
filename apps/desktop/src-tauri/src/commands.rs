@@ -229,7 +229,16 @@ pub async fn start_video_download(
             sub_format.as_deref(),
             &expanded,
         ).await {
-            Ok((mut child, mut progress_rx)) => {
+            Ok((mut child, mut progress_rx, mut err_rx)) => {
+                // Collect stderr in background
+                let stderr_lines = Arc::new(tokio::sync::Mutex::new(Vec::<String>::new()));
+                let stderr_lines_clone = stderr_lines.clone();
+                tokio::spawn(async move {
+                    while let Some(line) = err_rx.recv().await {
+                        stderr_lines_clone.lock().await.push(line);
+                    }
+                });
+
                 while let Some(progress) = progress_rx.recv().await {
                     if let Ok(Some(mut dl)) = db.get_download(&dl_id) {
                         dl.progress = progress.percentage;
@@ -251,7 +260,12 @@ pub async fn start_video_download(
                     Ok(exit) => {
                         if let Ok(Some(mut dl)) = db.get_download(&dl_id) {
                             dl.status = "failed".to_string();
-                            dl.error = Some(format!("yt-dlp exited with code: {}", exit));
+                            let stderr = stderr_lines.lock().await.join("\n");
+                            dl.error = Some(if stderr.is_empty() {
+                                format!("yt-dlp exited with code: {}", exit)
+                            } else {
+                                format!("yt-dlp failed ({}): {}", exit, stderr)
+                            });
                             let _ = db.update_download(&dl);
                         }
                     }
@@ -946,4 +960,89 @@ pub fn check_consent(state: State<'_, AppState>) -> Result<bool, String> {
 #[tauri::command]
 pub fn accept_consent(state: State<'_, AppState>) -> Result<(), String> {
     state.db.record_consent(TOS_VERSION).map_err(|e| format!("DB error: {}", e))
+}
+
+// Save link (bookmark/citation) without downloading
+
+#[tauri::command]
+pub async fn save_link(
+    state: State<'_, AppState>,
+    url: String,
+    notes: Option<String>,
+) -> Result<Clip, String> {
+    // Fetch page metadata
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| format!("HTTP client error: {}", e))?;
+
+    let resp = client.get(&url)
+        .header("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch URL: {}", e))?;
+
+    let html = resp.text().await.map_err(|e| format!("Failed to read response: {}", e))?;
+
+    // Extract title and description
+    let title = extract_meta_title(&html);
+    let description = extract_meta_description(&html);
+
+    let id = Uuid::new_v4().to_string();
+    let now = chrono::Utc::now().to_rfc3339();
+
+    let clip = Clip {
+        id: id.clone(),
+        url: url.clone(),
+        title: Some(title.unwrap_or_else(|| url.clone())),
+        markdown: notes,
+        html: Some(description.unwrap_or_default()),
+        summary: None,
+        tags: String::new(),
+        source_type: "link".to_string(),
+        vault_path: None,
+        created_at: now.clone(),
+        updated_at: None,
+    };
+
+    state.db.insert_clip(&clip).map_err(|e| format!("DB error: {}", e))?;
+
+    Ok(clip)
+}
+
+fn extract_meta_title(html: &str) -> Option<String> {
+    let lower = html.to_lowercase();
+    if let Some(start) = lower.find("<title") {
+        if let Some(gt) = html[start..].find('>') {
+            let after = &html[start + gt + 1..];
+            if let Some(end) = after.find("</") {
+                let title = after[..end].trim();
+                if !title.is_empty() {
+                    return Some(title.to_string());
+                }
+            }
+        }
+    }
+    None
+}
+
+fn extract_meta_description(html: &str) -> Option<String> {
+    let lower = html.to_lowercase();
+    let patterns = ["name=\"description\"", "name='description'", "property=\"og:description\""];
+    for pattern in patterns {
+        if let Some(pos) = lower.find(pattern) {
+            let region = &html[pos.saturating_sub(200)..std::cmp::min(pos + 500, html.len())];
+            let region_lower = region.to_lowercase();
+            if let Some(content_pos) = region_lower.find("content=\"") {
+                let after = &region[content_pos + 9..];
+                if let Some(end) = after.find('"') {
+                    let desc = &after[..end];
+                    if !desc.is_empty() {
+                        return Some(desc.to_string());
+                    }
+                }
+            }
+        }
+    }
+    None
 }

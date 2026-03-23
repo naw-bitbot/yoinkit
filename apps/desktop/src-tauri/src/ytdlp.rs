@@ -163,7 +163,7 @@ pub async fn spawn_video_download(
     quality: Option<&str>,
     audio_only: bool,
     save_dir: &str,
-) -> Result<(Child, mpsc::Receiver<YtdlpProgress>), String> {
+) -> Result<(Child, mpsc::Receiver<YtdlpProgress>, mpsc::Receiver<String>), String> {
     spawn_video_download_with_subs(url, format, quality, audio_only, false, None, None, save_dir).await
 }
 
@@ -176,7 +176,7 @@ pub async fn spawn_video_download_with_subs(
     sub_lang: Option<&str>,
     sub_format: Option<&str>,
     save_dir: &str,
-) -> Result<(Child, mpsc::Receiver<YtdlpProgress>), String> {
+) -> Result<(Child, mpsc::Receiver<YtdlpProgress>, mpsc::Receiver<String>), String> {
     let ytdlp = ytdlp_binary_path();
     let ffmpeg = ffmpeg_binary_path();
 
@@ -231,7 +231,9 @@ pub async fn spawn_video_download_with_subs(
 
     let mut child = cmd.spawn().map_err(|e| format!("Failed to spawn yt-dlp: {}", e))?;
     let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
+    let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
     let (tx, rx) = mpsc::channel(100);
+    let (err_tx, err_rx) = mpsc::channel(100);
 
     tokio::spawn(async move {
         let reader = BufReader::new(stdout);
@@ -244,7 +246,16 @@ pub async fn spawn_video_download_with_subs(
         }
     });
 
-    Ok((child, rx))
+    // Spawn stderr reader
+    tokio::spawn(async move {
+        let reader = BufReader::new(stderr);
+        let mut lines = reader.lines();
+        while let Ok(Some(line)) = lines.next_line().await {
+            let _ = err_tx.send(line).await;
+        }
+    });
+
+    Ok((child, rx, err_rx))
 }
 
 fn parse_ytdlp_progress(line: &str) -> Option<YtdlpProgress> {
